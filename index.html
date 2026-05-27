@@ -41,7 +41,7 @@ async function sendFiscalReceipt(items, total, method){
       const pBani=Math.round(it.price*100)
       const name=(it.name||'Produs').substring(0,36).replace(/\^/g,'-')
       const unit=(it.unit||'buc').substring(0,8)
-      return `S^${name}^${pBani}^1000^${unit}^${it.qty}^`
+      return `S^${name}^${pBani}^1^${unit}^${it.qty}^`
     })
     const totalBani=Math.round(total*100)
     lines.push(`P^${method==='cash'?1:2}^${totalBani}`)
