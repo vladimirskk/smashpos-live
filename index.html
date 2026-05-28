@@ -41,17 +41,10 @@ async function sendFiscalReceipt(items, total, method){
       const pBani=Math.round(it.price*100)
       const name=(it.name||'Produs').substring(0,36).replace(/\^/g,'-')
       const unit=(it.unit||'buc').substring(0,8)
-      return `S^${name}^${pBani}^1^${unit}^${it.qty}^`
+      return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
     const totalBani=Math.round(total*100)
     lines.push(`P^${method==='cash'?1:2}^${totalBani}`)
-    // Pe Vercel (HTTPS) nu putem apela FiscalNet (HTTP) direct — trimitem prin Print Agent
-    if(sb){
-      const r=await Promise.resolve(sb.from('print_jobs').insert({restaurant_id:RESTAURANT_ID,job_type:'fiscal',payload:{lines},status:'pending'}))
-      if(r.error) throw new Error(r.error.message)
-      return {ok:true,nr:'🖨 Print Agent'}
-    }
-    // Fallback: apel direct (doar local file://)
     const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
     const data=await res.json()
