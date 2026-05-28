@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="ro">
-<head>
+<!DOCTYPE html><html lang="ro"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VladimirSmash POS</title>
@@ -8,19 +6,8 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#c7d0f0;border-radius:3px}
-select option{background:#fff;color:#0a0f2e}
-::placeholder{color:#8892cc}
-@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
-</style>
-</head>
-<body>
-<div id="root"></div>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}</style>
+</head><body><div id="root"></div>
 <script type="text/babel">
 const { useState, useRef, useMemo, useEffect } = React;
 
@@ -28,7 +15,7 @@ const ff = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-se
 const F = { bg:'#f0f4ff', surface:'#fff', border:'#e2e8ff', text:'#0a0f2e', textSec:'#3a4580', textMuted:'#8892cc', primary:'#0017C0' }
 const grad = (a,b,deg=135) => `linear-gradient(${deg}deg,${a},${b})`
 const fmt = n => `${Number(n||0).toFixed(2)} RON`
-const VAT = 0.09
+const VAT = 0
 const FISCAL_URL = 'http://192.168.0.177:65400/api/Receipt'
 const SUPABASE_URL = 'https://nabugijoikxqqztwpzyj.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5hYnVnaWpvaWt4cXF6dHdwenlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NzU3ODIsImV4cCI6MjA5NTQ1MTc4Mn0.85BSs-LnmMlP-FHCkneXr73JEMjF4xieHbf9IkMdt7k'
@@ -93,11 +80,11 @@ function getWeek(d){const s=new Date(d);s.setHours(0,0,0,0);s.setDate(s.getDate(
 
 // ── Seed ──────────────────────────────────────────────────────────────────────
 const INIT_CATS=[
-  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30'},
-  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a'},
-  {id:'bauturi',name:'Bauturi',from:'#0040cc',to:'#007aff'},
-  {id:'sosuri', name:'Sosuri', from:'#1a7a3c',to:'#30d158'},
-  {id:'desert', name:'Deserturi',from:'#8b1a6b',to:'#ff375f'},
+  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30',fontSize:12,bold:true},
+  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a',fontSize:12,bold:true},
+  {id:'bauturi',name:'Bauturi',from:'#0040cc',to:'#007aff',fontSize:12,bold:true},
+  {id:'sosuri', name:'Sosuri', from:'#1a7a3c',to:'#30d158',fontSize:12,bold:true},
+  {id:'desert', name:'Deserturi',from:'#8b1a6b',to:'#ff375f',fontSize:12,bold:true},
 ]
 const INIT_PRODS=[
   {id:1,name:'SmashBurger Classic',price:32,cat:'burgeri',img:null,unit:'buc',available:true,recipe:[{ing:'Carne 180g',qty:1,unit:'buc'},{ing:'Chifla',qty:1,unit:'buc'},{ing:'Salata',qty:20,unit:'g'}]},
@@ -275,14 +262,13 @@ function UpsellChecklist({cart,products,onConfirm,onSkip}){
 
 // ── ProdCard ──────────────────────────────────────────────────────────────────
 function ProdCard({p,cat,qty,onAdd}){
-  return <div style={{borderRadius:14,overflow:'hidden',cursor:'pointer',border:qty>0?`2.5px solid ${cat.from}`:`1.5px solid ${F.border}`,background:'#fff',display:'flex',flexDirection:'column',boxShadow:qty>0?`0 4px 16px ${cat.from}44`:'0 1px 5px rgba(0,0,0,0.07)',position:'relative'}}>
-    {qty>0&&<div style={{position:'absolute',top:7,right:7,zIndex:2,background:grad(cat.from,cat.to),color:'#fff',borderRadius:'50%',width:22,height:22,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>{qty}</div>}
-    <div onClick={()=>onAdd(p)} style={{paddingBottom:'55%',position:'relative',background:qty>0?`${cat.from}12`:'#f5f5f7',overflow:'hidden'}}>
-      <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,fontWeight:800,color:cat.from,opacity:0.2}}>{p.name[0]}</div>
-    </div>
-    <div onClick={()=>onAdd(p)} style={{background:cat.from,padding:'8px 10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      <div style={{fontSize:11,fontWeight:700,color:'#fff',lineHeight:1.2,flex:1,marginRight:6}}>{p.name}</div>
-      <div style={{fontSize:13,fontWeight:800,color:'#fff',whiteSpace:'nowrap'}}>{p.price} RON</div>
+  const fs=cat.fontSize??12
+  const fw=cat.bold!==false?700:400
+  return <div onClick={()=>onAdd(p)} style={{borderRadius:14,overflow:'hidden',cursor:'pointer',border:qty>0?`2.5px solid ${cat.from}`:`1.5px solid ${F.border}`,background:grad(cat.from,cat.to),display:'flex',flexDirection:'column',justifyContent:'flex-end',boxShadow:qty>0?`0 4px 16px ${cat.from}55`:'0 2px 8px rgba(0,0,0,0.15)',position:'relative',minHeight:80}}>
+    {qty>0&&<div style={{position:'absolute',top:7,right:7,zIndex:2,background:'rgba(0,0,0,0.35)',color:'#fff',borderRadius:'50%',width:22,height:22,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>{qty}</div>}
+    <div style={{padding:'10px 10px 10px',display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:4}}>
+      <div style={{fontSize:fs,fontWeight:fw,color:'#fff',lineHeight:1.2,flex:1,marginRight:4,textShadow:'0 1px 3px rgba(0,0,0,0.4)'}}>{p.name}</div>
+      <div style={{fontSize:Math.max(fs,13),fontWeight:800,color:'#fff',whiteSpace:'nowrap',textShadow:'0 1px 3px rgba(0,0,0,0.4)'}}>{p.price} RON</div>
     </div>
   </div>
 }
@@ -678,8 +664,6 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#6e6e73',marginBottom:2}}><span>Subtotal</span><span>{subtotal.toFixed(2)} RON</span></div>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#6e6e73'}}><span>TVA 9%</span><span>{vat.toFixed(2)} RON</span></div>
           <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{total.toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
@@ -710,7 +694,6 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
         <div style={{height:1,background:F.border,margin:'10px 0'}}/>
         {paid.items.map(it=><div key={it.id} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'3px 0'}}><span>{it.name} x{it.qty}</span><span style={{fontWeight:700}}>{(it.price*it.qty).toFixed(2)} RON</span></div>)}
         <div style={{height:1,background:F.border,margin:'10px 0'}}/>
-        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted}}><span>TVA 9%</span><span>{paid.vat.toFixed(2)} RON</span></div>
         <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,marginTop:6}}><span>TOTAL</span><span style={{color:F.primary}}>{paid.total.toFixed(2)} RON</span></div>
         <div style={{marginTop:10,textAlign:'center',padding:'6px',borderRadius:8,background:paid.method==='cash'?'#e3fff3':'#e8eeff',color:paid.method==='cash'?'#1a7a3c':F.primary,fontWeight:700,fontSize:13}}>Platit cu {paid.method==='cash'?'NUMERAR':'CARD'}</div>
         <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:8}}>
@@ -837,7 +820,6 @@ function RapoarteTab({orders,employees,products}){
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(145px,1fr))',gap:10}}>
       <StatCard label="Comenzi" value={filtered.length} from='#0017C0' to='#0066ff'/>
       <StatCard label="Venituri" value={fmt(total)} from='#1a7a3c' to='#30d158'/>
-      <StatCard label="TVA 9%" value={fmt(vat)} from='#b35a00' to='#ff9f0a'/>
       <StatCard label="Cash" value={fmt(cash)} from='#1a7a3c' to='#28cd41'/>
       <StatCard label="Card" value={fmt(card)} from='#0040cc' to='#007aff'/>
     </div>
@@ -1536,14 +1518,31 @@ function SetariTab({cats,setCats,btnCfg,setBtnCfg}){
       ))}
     </Card>
     <Card style={{padding:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Culori categorii</div>
+      <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Culori & text categorii</div>
       {cats.map(cat=>(
-        <div key={cat.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:`1px solid ${F.border}`}}>
-          <div style={{width:36,height:36,borderRadius:9,background:grad(cat.from,cat.to),display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:15,flexShrink:0}}>{cat.name[0]}</div>
-          <span style={{flex:1,fontSize:13,fontWeight:600,color:F.text}}>{cat.name}</span>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <ColorDot value={cat.from} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,from:v}:c))}/>
-            <ColorDot value={cat.to} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,to:v}:c))}/>
+        <div key={cat.id} style={{padding:'10px 0',borderBottom:`1px solid ${F.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+            <div style={{width:36,height:36,borderRadius:9,background:grad(cat.from,cat.to),display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:15,flexShrink:0}}>{cat.name[0]}</div>
+            <span style={{flex:1,fontSize:13,fontWeight:600,color:F.text}}>{cat.name}</span>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <ColorDot value={cat.from} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,from:v}:c))}/>
+              <ColorDot value={cat.to} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,to:v}:c))}/>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:48}}>
+            <span style={{fontSize:11,color:F.textMuted,fontWeight:600,minWidth:34}}>Font:</span>
+            <div style={{display:'flex',gap:4}}>
+              {[10,11,12,14,16].map(sz=>(
+                <button key={sz} onClick={()=>setCats(p=>p.map(c=>c.id===cat.id?{...c,fontSize:sz}:c))}
+                  style={{width:30,height:26,borderRadius:6,border:`1.5px solid ${(cat.fontSize??12)===sz?cat.from:F.border}`,background:(cat.fontSize??12)===sz?cat.from:'#f5f5f7',color:(cat.fontSize??12)===sz?'#fff':F.textSec,fontSize:10,fontWeight:700,cursor:'pointer',fontFamily:ff}}>
+                  {sz}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setCats(p=>p.map(c=>c.id===cat.id?{...c,bold:!(c.bold!==false)}:c))}
+              style={{padding:'4px 10px',borderRadius:6,border:`1.5px solid ${cat.bold!==false?cat.from:F.border}`,background:cat.bold!==false?cat.from:'#f5f5f7',color:cat.bold!==false?'#fff':F.textSec,fontSize:12,fontWeight:800,cursor:'pointer',fontFamily:ff}}>
+              B
+            </button>
           </div>
         </div>
       ))}
@@ -1781,8 +1780,5 @@ function App(){
   </div>
   return <AppInner/>
 }
-
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>)
-</script>
-</body>
-</html>
+</script></body></html>
