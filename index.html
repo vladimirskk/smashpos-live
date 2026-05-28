@@ -62,6 +62,14 @@ const UPSELL_CATS = [
   { cat:'desert',  label:'Desert?'  },
 ]
 
+// PWA fullscreen meta — injectat în <head> la pornire
+if(typeof document!=='undefined'){
+  const addMeta=(n,c)=>{if(!document.querySelector(`meta[name="${n}"]`)){const m=document.createElement('meta');m.name=n;m.content=c;document.head.appendChild(m)}}
+  addMeta('mobile-web-app-capable','yes')
+  addMeta('apple-mobile-web-app-capable','yes')
+  addMeta('apple-mobile-web-app-status-bar-style','black-translucent')
+  addMeta('apple-mobile-web-app-title','VladimirSmash POS')
+}
 function randTemp(mn,mx){return Math.round((mn+Math.random()*(mx-mn))*10)/10}
 function usePersist(key,def){
   const [val,setVal]=useState(()=>{try{const s=localStorage.getItem(key);if(s)return JSON.parse(s)}catch{}return typeof def==='function'?def():def})
@@ -612,6 +620,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <span style={{fontSize:15,fontWeight:700,color:F.text,flex:1}}>VladimirSmash</span>
       <span style={{fontSize:12,color:F.textMuted}}>{employee.name}</span>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Admin</GBtn>
+      <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'5px 10px',fontSize:15,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Iesire</GBtn>
     </div>
     <div style={{flex:1,display:'flex',overflow:'hidden'}}>
