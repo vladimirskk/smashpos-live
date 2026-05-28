@@ -273,6 +273,21 @@ function ProdCard({p,cat,qty,onAdd}){
   </div>
 }
 
+// ── BonFiscalBtn — reemite bon pentru o comandă existentă ─────────────────────
+function BonFiscalBtn({order}){
+  const [st,setSt]=useState(null) // null | 'loading' | {ok,nr?,err?}
+  if(order.method==='protocol'||order.method==='pierderi'||order.method==='kitchen') return null
+  if(st==='loading') return <span style={{fontSize:11,color:F.primary,fontWeight:600,padding:'3px 8px'}}>⏳</span>
+  if(st?.ok) return <span style={{fontSize:11,color:'#1a7a3c',fontWeight:700,padding:'3px 8px'}}>✓ #{st.nr}</span>
+  return <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2}}>
+    {st?.err&&<span style={{fontSize:10,color:'#c0392b',fontWeight:600,maxWidth:120,textAlign:'right'}}>{st.err}</span>}
+    <button onClick={async e=>{e.stopPropagation();setSt('loading');const r=await sendFiscalReceipt(order.items,order.total,order.method);setSt(r)}}
+      style={{fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:8,border:'none',background:st?.err?'#fff2f1':'#f0f4ff',color:st?.err?'#c0392b':F.primary,cursor:'pointer',fontFamily:ff,whiteSpace:'nowrap'}}>
+      {st?.err?'🔄 Retry':'🧾 Bon'}
+    </button>
+  </div>
+}
+
 // ── Modals ────────────────────────────────────────────────────────────────────
 function ProtocolModal({onClose,onSave,employee}){
   const [name,setName]=useState('')
@@ -486,6 +501,53 @@ function LoginScreen({employees,onLogin}){
   </div>
 }
 
+// ── ComenziAziModal ───────────────────────────────────────────────────────────
+function ComenziAziModal({orders,onClose}){
+  const today=new Date().toLocaleDateString('ro-RO')
+  const azi=orders.filter(o=>o.date===today&&(o.method==='cash'||o.method==='card')).sort((a,b)=>b.ts-a.ts)
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:120,padding:16}}>
+    <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:460,maxHeight:'85vh',display:'flex',flexDirection:'column',fontFamily:ff,boxShadow:'0 8px 40px rgba(0,23,192,0.18)'}}>
+      <div style={{padding:'18px 20px 14px',borderBottom:`1px solid ${F.border}`,display:'flex',alignItems:'center',gap:10}}>
+        <div style={{fontSize:17,fontWeight:800,color:F.text,flex:1}}>📋 Comenzi azi</div>
+        <div style={{fontSize:12,color:F.textMuted}}>{today}</div>
+        <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'#f5f5f7',cursor:'pointer',fontSize:18,color:F.textMuted,fontFamily:ff,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+      </div>
+      <div style={{overflowY:'auto',flex:1,padding:'8px 0'}}>
+        {azi.length===0
+          ? <div style={{padding:32,textAlign:'center',color:F.textMuted,fontSize:14}}>Nicio comandă azi.</div>
+          : azi.map(o=><ComenziAziRow key={o.id} order={o}/>)
+        }
+      </div>
+    </div>
+  </div>
+}
+
+function ComenziAziRow({order:o}){
+  const [st,setSt]=useState(null) // null | 'loading' | {ok,nr} | {ok:false,err}
+  const isCash=o.method==='cash'
+  return <div style={{padding:'12px 20px',borderBottom:`1px solid ${F.border}`}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5}}>
+      <span style={{fontSize:13,fontWeight:700,color:F.text,flex:1}}>#{o.num} — {o.time}</span>
+      <span style={{fontSize:11,padding:'2px 9px',borderRadius:999,background:isCash?'#e3fff3':'#e8eeff',color:isCash?'#1a7a3c':F.primary,fontWeight:700}}>{o.method.toUpperCase()}</span>
+      <span style={{fontSize:13,fontWeight:800,color:F.primary}}>{o.total.toFixed(2)} RON</span>
+    </div>
+    <div style={{fontSize:11,color:F.textMuted,marginBottom:8}}>{o.items.map(it=>`${it.name} ×${it.qty}`).join(' · ')}</div>
+    {st===null&&<button onClick={async()=>{setSt('loading');const r=await sendFiscalReceipt(o.items,o.total,o.method);setSt(r)}}
+      style={{width:'100%',padding:'9px',borderRadius:10,border:'none',background:grad('#1a7a3c','#30d158'),color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:ff}}>
+      🧾 Emite bon fiscal
+    </button>}
+    {st==='loading'&&<div style={{textAlign:'center',padding:'9px',borderRadius:10,background:'#f0f4ff',fontSize:13,color:F.primary,fontWeight:600}}>⏳ Se trimite la casă...</div>}
+    {st?.ok&&<div style={{textAlign:'center',padding:'9px',borderRadius:10,background:'#e3fff3',fontSize:13,color:'#1a7a3c',fontWeight:700}}>✓ Bon emis — Nr. {st.nr}</div>}
+    {st&&!st.ok&&<div style={{display:'flex',flexDirection:'column',gap:6}}>
+      <div style={{textAlign:'center',padding:'7px',borderRadius:10,background:'#fff2f1',fontSize:12,color:'#c0392b',fontWeight:600}}>⚠ {st.err}</div>
+      <button onClick={async()=>{setSt('loading');const r=await sendFiscalReceipt(o.items,o.total,o.method);setSt(r)}}
+        style={{width:'100%',padding:'8px',borderRadius:10,border:'none',background:grad('#1a7a3c','#30d158'),color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:ff}}>
+        🔄 Încearcă din nou
+      </button>
+    </div>}
+  </div>
+}
+
 // ── POS ───────────────────────────────────────────────────────────────────────
 function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,setProtocols,customers,setCustomers,menus,pierderi,setPierderi,onAdmin,onLogout,btnCfg,setBtnCfg}){
   const [activeCat,setActiveCat]=useState('__toate__')
@@ -502,6 +564,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const [pendingAction,setPendingAction]=useState(null)
   const [showHaccp,setShowHaccp]=useState(false)
   const [haccpSlot,setHaccpSlot]=useState(null)
+  const [showComenziAzi,setShowComenziAzi]=useState(false)
   const [haccpData,setHaccpData]=usePersist('pos_haccp_data',{})
   useEffect(()=>{
     const SLOTS=[{slot:'12:00',base:720},{slot:'19:00',base:1140}]
@@ -605,6 +668,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <div style={{width:32,height:32,borderRadius:8,background:grad('#0017C0','#0066ff'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff'}}>V</div>
       <span style={{fontSize:15,fontWeight:700,color:F.text,flex:1}}>VladimirSmash</span>
       <span style={{fontSize:12,color:F.textMuted}}>{employee.name}</span>
+      <button onClick={()=>setShowComenziAzi(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>📋 Comenzi</button>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Admin</GBtn>
       <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'5px 10px',fontSize:15,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Iesire</GBtn>
@@ -688,6 +752,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     {showLivrare&&<LivrareModal customers={customers} onClose={()=>setShowLivrare(false)} onConfirm={confirmLivrare}/>}
     {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
+    {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
     {paid&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
       <Card style={{width:320,padding:22}}>
         <div style={{textAlign:'center',marginBottom:12}}><div style={{fontSize:17,fontWeight:800,color:F.primary}}>VladimirSmash</div><div style={{fontSize:11,color:F.textMuted}}>Bon #{paid.num} — {paid.emp_name}</div></div>
