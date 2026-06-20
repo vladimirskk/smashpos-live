@@ -5,10 +5,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}</style>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes posBell{from{transform:scale(1);box-shadow:0 0 0 0 rgba(192,57,43,0.7)}to{transform:scale(1.07);box-shadow:0 0 0 8px rgba(192,57,43,0)}}</style>
 </head><body><div id="root"></div>
-<script type="text/babel">
+<script type="text/babel" data-presets="react">
+/* @jsxRuntime classic */
 const { useState, useRef, useMemo, useEffect } = React;
 
 const ff = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif"
@@ -58,6 +59,23 @@ if(typeof document!=='undefined'){
   addMeta('apple-mobile-web-app-title','VladimirSmash POS')
 }
 function randTemp(mn,mx){return Math.round((mn+Math.random()*(mx-mn))*10)/10}
+// Sunet de alertă pentru comenzi online noi (două bipuri scurte)
+let _vsAudioCtx=null
+function playDing(){
+  try{
+    _vsAudioCtx=_vsAudioCtx||new (window.AudioContext||window.webkitAudioContext)()
+    const ctx=_vsAudioCtx
+    if(ctx.state==='suspended') ctx.resume()
+    ;[0,0.20].forEach((t,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain()
+      o.type='sine';o.frequency.value=i?1318.5:880
+      o.connect(g);g.connect(ctx.destination)
+      const st=ctx.currentTime+t
+      g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(0.32,st+0.02);g.gain.exponentialRampToValueAtTime(0.0008,st+0.38)
+      o.start(st);o.stop(st+0.42)
+    })
+  }catch(e){}
+}
 function usePersist(key,def){
   const [val,setVal]=useState(()=>{try{const s=localStorage.getItem(key);if(s)return JSON.parse(s)}catch{}return typeof def==='function'?def():def})
   const set=v=>{setVal(prev=>{const next=typeof v==='function'?v(prev):v;try{localStorage.setItem(key,JSON.stringify(next))}catch{};if(sb)Promise.resolve(sb.from('pos_store').upsert({restaurant_id:RESTAURANT_ID,store_key:key,value:next,updated_at:new Date().toISOString()},{onConflict:'restaurant_id,store_key'})).catch(()=>{});return next})}
@@ -411,7 +429,7 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder})
             <div style={{background:o.livrare?grad('#c0392b','#ff3b30'):grad('#0017C0','#0066ff'),padding:'10px 14px'}}>
               {o.livrare&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#fff'}}/>
-                <span style={{fontSize:11,fontWeight:800,color:'#fff',textTransform:'uppercase',letterSpacing:'0.08em'}}>Livrare</span>
+                <span style={{fontSize:11,fontWeight:800,color:'#fff',textTransform:'uppercase',letterSpacing:'0.08em'}}>{o.online?(o.livrare.address?'🔔 Online · Livrare':'🔔 Online · Ridicare'):'Livrare'}</span>
               </div>}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                 <div>
@@ -548,6 +566,48 @@ function ComenziAziRow({order:o}){
   </div>
 }
 
+// ── ComenziOnlineModal — comenzi primite de pe site ───────────────────────────
+function ComenziOnlineModal({orders,onAccept,onReject,onClose}){
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:130,padding:16}}>
+    <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'88vh',display:'flex',flexDirection:'column',fontFamily:ff,boxShadow:'0 8px 40px rgba(0,23,192,0.18)'}}>
+      <div style={{padding:'18px 20px 14px',borderBottom:`1px solid ${F.border}`,display:'flex',alignItems:'center',gap:10}}>
+        <div style={{fontSize:17,fontWeight:800,color:F.text,flex:1}}>🔔 Comenzi online</div>
+        <div style={{fontSize:12,color:F.textMuted}}>{orders.length} noi</div>
+        <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'#f5f5f7',cursor:'pointer',fontSize:18,color:F.textMuted,fontFamily:ff,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:14,display:'flex',flexDirection:'column',gap:12}}>
+        {orders.length===0
+          ? <div style={{padding:36,textAlign:'center',color:F.textMuted,fontSize:14}}>Nicio comandă online nouă.</div>
+          : orders.map(o=>{
+              const isDel=o.fulfillment==='delivery'
+              return <div key={o.id} style={{border:`2px solid ${isDel?'#c0392b':'#0017C0'}`,borderRadius:14,overflow:'hidden'}}>
+                <div style={{background:isDel?grad('#c0392b','#ff3b30'):grad('#0017C0','#0066ff'),padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:800,color:'#fff',letterSpacing:'0.04em'}}>#{o.code} · {isDel?'LIVRARE':'RIDICARE'}</div>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,0.95)',marginTop:3,fontWeight:600}}>{o.customer_name||'—'} · {o.customer_phone||'—'}</div>
+                    {isDel&&o.address&&<div style={{fontSize:11,color:'rgba(255,255,255,0.9)',marginTop:1}}>{o.address}</div>}
+                  </div>
+                  <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total)}</div>
+                </div>
+                <div style={{padding:'8px 14px'}}>
+                  {(o.items||[]).map((it,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:13,padding:'4px 0',borderBottom:`1px solid ${F.border}`}}>
+                    <span style={{fontWeight:600}}>{it.name}{it.note?<span style={{color:F.textMuted,fontWeight:400,fontStyle:'italic'}}> — {it.note}</span>:null}</span>
+                    <span style={{color:F.textMuted}}>×{it.qty}</span>
+                  </div>)}
+                  <div style={{fontSize:11,color:F.textMuted,marginTop:6}}>Plată aleasă pe site: <b style={{color:F.textSec}}>{o.payment}</b></div>
+                </div>
+                <div style={{padding:'10px 14px',display:'flex',gap:8}}>
+                  <button onClick={()=>onReject(o)} style={{flex:1,padding:'11px',borderRadius:10,border:`1.5px solid #ffd0cc`,background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>Refuză</button>
+                  <GBtn from='#1a7a3c' to='#30d158' onClick={()=>onAccept(o)} style={{flex:2,padding:'11px',fontSize:14}}>✓ Acceptă → Bucătărie</GBtn>
+                </div>
+              </div>
+            })
+        }
+      </div>
+    </div>
+  </div>
+}
+
 // ── POS ───────────────────────────────────────────────────────────────────────
 function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,setProtocols,customers,setCustomers,menus,pierderi,setPierderi,onAdmin,onLogout,btnCfg,setBtnCfg}){
   const [activeCat,setActiveCat]=useState('__toate__')
@@ -565,6 +625,71 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const [showHaccp,setShowHaccp]=useState(false)
   const [haccpSlot,setHaccpSlot]=useState(null)
   const [showComenziAzi,setShowComenziAzi]=useState(false)
+  const [onlineOrders,setOnlineOrders]=useState([])
+  const [showOnline,setShowOnline]=useState(false)
+  // Deblochează AudioContext la primul click (Safari/Mac blochează sunetele fără interacțiune)
+  useEffect(()=>{
+    const unlock=()=>{
+      try{
+        if(!_vsAudioCtx) _vsAudioCtx=new (window.AudioContext||window.webkitAudioContext)()
+        if(_vsAudioCtx.state==='suspended') _vsAudioCtx.resume().catch(()=>{})
+        const buf=_vsAudioCtx.createBuffer(1,1,22050)
+        const src=_vsAudioCtx.createBufferSource(); src.buffer=buf
+        src.connect(_vsAudioCtx.destination); src.start(0)
+      }catch(e){}
+      document.removeEventListener('click',unlock)
+      document.removeEventListener('touchend',unlock)
+    }
+    document.addEventListener('click',unlock)
+    document.addEventListener('touchend',unlock)
+    return ()=>{ document.removeEventListener('click',unlock); document.removeEventListener('touchend',unlock) }
+  },[])
+  // Comenzi online (de pe site) — încărcare + realtime
+  useEffect(()=>{
+    if(!sb) return
+    let chan
+    const load=async()=>{
+      try{
+        const {data}=await sb.from('online_orders').select('*').eq('restaurant_id',RESTAURANT_ID).eq('status','new').order('created_at',{ascending:true})
+        if(data) setOnlineOrders(data)
+      }catch(e){}
+    }
+    load()
+    try{
+      chan=sb.channel('pos-online-'+RESTAURANT_ID)
+        .on('postgres_changes',{event:'INSERT',schema:'public',table:'online_orders'},payload=>{
+          const o=payload.new
+          if(o&&o.restaurant_id===RESTAURANT_ID&&o.status==='new'){
+            setOnlineOrders(prev=>prev.find(x=>x.id===o.id)?prev:[...prev,o])
+            playDing()
+          }
+        })
+        .on('postgres_changes',{event:'UPDATE',schema:'public',table:'online_orders'},payload=>{
+          const o=payload.new
+          if(o&&o.restaurant_id===RESTAURANT_ID&&o.status!=='new') setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
+        })
+        .subscribe()
+    }catch(e){}
+    return ()=>{ if(chan){try{sb.removeChannel(chan)}catch(e){}} }
+  },[])
+  const acceptOnline=async(o)=>{
+    // reconstruiește produsele din POS (pt. rețetă → scădere stoc la plată)
+    const items=(o.items||[]).map(it=>{
+      const prod=products.find(p=>String(p.id)===String(it.id))
+      return {...(prod||{}),id:it.id,name:it.name,price:Number(it.price)||0,qty:it.qty,note:it.note||''}
+    })
+    const sub=items.reduce((s,i)=>s+i.price*i.qty,0),vat=Math.round(sub*VAT*100)/100,dt=new Date()
+    const isDel=o.fulfillment==='delivery'
+    const livrare={name:(o.customer_name||'Client site')+(isDel?'':' (RIDICARE)'),phone:o.customer_phone||'',address:isDel?(o.address||''):'',notes:'Comandă ONLINE'+(o.payment?(' · plată: '+o.payment):'')}
+    setKitchenOrders(p=>[...p,{id:Date.now(),num:'S'+(o.code||''),emp_id:employee.id,emp_name:'Online',items,subtotal:sub,vat,total:sub+vat,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true}])
+    setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
+    if(sb){try{await sb.from('online_orders').update({status:'accepted'}).eq('id',o.id)}catch(e){}}
+    setShowKitchen(true);setShowOnline(false)
+  }
+  const rejectOnline=async(o)=>{
+    setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
+    if(sb){try{await sb.from('online_orders').update({status:'rejected'}).eq('id',o.id)}catch(e){}}
+  }
   const [haccpData,setHaccpData]=usePersist('pos_haccp_data',{})
   useEffect(()=>{
     const SLOTS=[{slot:'12:00',base:720},{slot:'19:00',base:1140}]
@@ -669,6 +794,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <span style={{fontSize:15,fontWeight:700,color:F.text,flex:1}}>VladimirSmash</span>
       <span style={{fontSize:12,color:F.textMuted}}>{employee.name}</span>
       <button onClick={()=>setShowComenziAzi(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>📋 Comenzi</button>
+      <button onClick={()=>setShowOnline(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:700,display:'flex',alignItems:'center',gap:5,animation:onlineOrders.length?'posBell .7s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length>0&&<span style={{background:'#fff',color:'#c0392b',borderRadius:10,padding:'0 6px',fontSize:11,fontWeight:800}}>{onlineOrders.length}</span>}</button>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Admin</GBtn>
       <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'5px 10px',fontSize:15,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Iesire</GBtn>
@@ -753,6 +879,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
     {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
+    {showOnline&&<ComenziOnlineModal orders={onlineOrders} onAccept={acceptOnline} onReject={rejectOnline} onClose={()=>setShowOnline(false)}/>}
     {paid&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
       <Card style={{width:320,padding:22}}>
         <div style={{textAlign:'center',marginBottom:12}}><div style={{fontSize:17,fontWeight:800,color:F.primary}}>VladimirSmash</div><div style={{fontSize:11,color:F.textMuted}}>Bon #{paid.num} — {paid.emp_name}</div></div>
@@ -792,6 +919,7 @@ function AdminView({employee,employees,setEmployees,products,setProducts,cats,se
     {id:'pierderi',label:'Pierderi',roles:['owner','manager','casier']},
     {id:'retrageri',label:'Retragerile mele',roles:['casier']},
     {id:'tura',label:'Tura',roles:['owner','manager','casier']},
+    {id:'site_poze',label:'Poze Site',roles:['owner','manager']},
     {id:'setari',label:'Setari culori',roles:['owner','manager']},
     {id:'registru',label:'Registru Casă',roles:['owner','manager']},
     {id:'haccp',label:'HACCP',roles:['owner','manager','casier']},
@@ -820,6 +948,7 @@ function AdminView({employee,employees,setEmployees,products,setProducts,cats,se
       {tab==='pierderi'&&<PierderTab pierderi={pierderi} employee={employee} employees={employees}/>}
       {tab==='retrageri'&&<RetragerileTab employee={employee} withdrawals={withdrawals} setWithdrawals={setWithdrawals}/>}
       {tab==='tura'&&<TuraTab employee={employee} employees={employees} orders={orders}/>}
+      {tab==='site_poze'&&<SitePozeTab/>}
       {tab==='setari'&&<SetariTab cats={cats} setCats={setCats} btnCfg={btnCfg} setBtnCfg={setBtnCfg}/>}
       {tab==='registru'&&<RegistruCasaTab orders={orders} withdrawals={withdrawals}/>}
       {tab==='haccp'&&<HaccpTab/>}
@@ -1031,12 +1160,33 @@ function ProfitTab({orders,products,stock}){
 function ProduseTab({products,setProducts,cats,setCats,stock}){
   const {ask,el}=useConfirm()
   const [editProd,setEditProd]=useState(null),[showCats,setShowCats]=useState(false)
+  const [uploading,setUploading]=useState(null)
   const stockKeys=Object.keys(stock)
   const updProd=(id,k,v)=>setProducts(p=>p.map(x=>x.id===id?{...x,[k]:v}:x))
   const addRec=id=>setProducts(p=>p.map(x=>x.id===id?{...x,recipe:[...(x.recipe??[]),{ing:stockKeys[0]??'',qty:1,unit:'g'}]}:x))
   const updRec=(id,i,k,v)=>setProducts(p=>p.map(x=>x.id===id?{...x,recipe:x.recipe.map((r,j)=>j===i?{...r,[k]:v}:r)}:x))
   const delRec=async(id,i)=>{if(await ask('Stergi acest ingredient?'))setProducts(p=>p.map(x=>x.id===id?{...x,recipe:x.recipe.filter((_,j)=>j!==i)}:x))}
   const delProd=async(id)=>{if(await ask('Stergi produsul?'))setProducts(p=>p.filter(x=>x.id!==id))}
+  const uploadImg=async(pid,file)=>{
+    if(!sb){alert('Supabase indisponibil.');return}
+    setUploading(pid)
+    try{
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase()
+      const path=`prod-${pid}.${ext}`
+      const{error}=await sb.storage.from('product-images').upload(path,file,{upsert:true,contentType:file.type})
+      if(error){alert('Eroare upload: '+error.message);return}
+      const{data}=sb.storage.from('product-images').getPublicUrl(path)
+      updProd(pid,'img',data.publicUrl+'?t='+Date.now())
+    }catch(e){alert('Eroare: '+e.message)}
+    finally{setUploading(null)}
+  }
+  const removeImg=async(pid,imgUrl)=>{
+    if(sb&&imgUrl){
+      const parts=imgUrl.split('/product-images/')
+      if(parts[1]) await sb.storage.from('product-images').remove([parts[1].split('?')[0]]).catch(()=>{})
+    }
+    updProd(pid,'img',null)
+  }
   return <div style={{display:'flex',flexDirection:'column',gap:14}}>
     {el}
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
@@ -1071,7 +1221,47 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
               <span style={{fontSize:12,color:F.textSec}}>Marja: <strong style={{color:margin>50?'#1a7a3c':margin>25?'#b35a00':'#c0392b'}}>{margin}%</strong></span>
             </div>
 
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:600,color:F.textSec,display:'block',marginBottom:4}}>Descriere (apare pe site sub numele produsului)</label>
+              <textarea value={p.desc||''} onChange={e=>updProd(p.id,'desc',e.target.value)} placeholder="Ex: Carne de vită 180g, sos special, castraveți murați, cheddar..." rows={2} style={{width:'100%',padding:'8px 11px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,resize:'vertical',boxSizing:'border-box'}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:600,color:F.textSec,display:'block',marginBottom:4}}>⚠️ Alergeni (apare pe site cu text mic)</label>
+              <input value={p.allergens||''} onChange={e=>updProd(p.id,'allergens',e.target.value)} placeholder="Ex: gluten, lapte, ouă, muștar..." style={{width:'100%',padding:'8px 11px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,boxSizing:'border-box'}}/>
+            </div>
             <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,cursor:'pointer'}}><input type="checkbox" checked={p.available} onChange={e=>updProd(p.id,'available',e.target.checked)} style={{width:16,height:16}}/><span style={{fontSize:13,fontWeight:600,color:F.text}}>Disponibil in meniu</span></label>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:F.text,marginBottom:8}}>📸 Poză produs (apare pe site)</div>
+              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                {p.img&&<img src={p.img} style={{width:72,height:72,objectFit:'cover',borderRadius:10,border:`2px solid ${F.border}`,flexShrink:0}}/>}
+                <label style={{background:'#f0f4ff',border:`1.5px dashed #0017C0`,color:F.primary,borderRadius:9,padding:'8px 16px',cursor:'pointer',fontSize:12,fontFamily:ff,fontWeight:700,display:'inline-flex',alignItems:'center',gap:6,opacity:uploading===p.id?0.5:1}}>
+                  {uploading===p.id?'Se încarcă...':p.img?'Schimbă poza':'+ Adaugă poza'}
+                  <input type="file" accept="image/*" style={{display:'none'}} disabled={!!uploading} onChange={e=>{const f=e.target.files[0];if(f)uploadImg(p.id,f);e.target.value=''}}/>
+                </label>
+                {p.img&&<button onClick={()=>removeImg(p.id,p.img)} style={{background:'#fff2f1',border:'none',color:'#c0392b',borderRadius:8,padding:'8px 12px',cursor:'pointer',fontSize:12,fontFamily:ff,fontWeight:600}}>Șterge</button>}
+              </div>
+              {p.img&&<div style={{marginTop:10,background:'#f0f4ff',borderRadius:8,padding:'10px 14px'}}>
+                <div style={{fontSize:11,fontWeight:700,color:F.textSec,marginBottom:8}}>Ajustare poziție imagine pe site</div>
+                <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                  <div style={{flex:1,minWidth:160}}>
+                    <label style={{fontSize:11,fontWeight:600,color:F.textSec,display:'block',marginBottom:4}}>{'Zoom: '+Math.round((p.imgZoom||1.18)*100)+'%'}</label>
+                    <input type="range" min="60" max="260" step="2"
+                      value={Math.round((p.imgZoom||1.18)*100)}
+                      onChange={e=>updProd(p.id,'imgZoom',Number(e.target.value)/100)}
+                      style={{width:'100%'}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:160}}>
+                    <label style={{fontSize:11,fontWeight:600,color:F.textSec,display:'block',marginBottom:4}}>{'Sus/Jos: '+(p.imgOffsetY||0)+'%'}</label>
+                    <input type="range" min="-40" max="40" step="1"
+                      value={p.imgOffsetY||0}
+                      onChange={e=>updProd(p.id,'imgOffsetY',Number(e.target.value))}
+                      style={{width:'100%'}}/>
+                  </div>
+                  <button onClick={()=>{updProd(p.id,'imgZoom',1.18);updProd(p.id,'imgOffsetY',0);}}
+                    style={{alignSelf:'flex-end',background:'#fff',border:`1px solid ${F.border}`,color:F.textSec,borderRadius:7,padding:'6px 12px',cursor:'pointer',fontSize:11,fontFamily:ff}}>Reset</button>
+                </div>
+              </div>}
+            </div>
             <div style={{fontSize:12,fontWeight:700,color:F.text,marginBottom:8}}>Retetar</div>
             {(p.recipe??[]).map((r,i)=>(
               <div key={i} style={{display:'flex',gap:7,marginBottom:7,alignItems:'center'}}>
@@ -1564,6 +1754,110 @@ function HaccpTab(){
   </div>
 }
 
+// ── POZE SITE ──────────────────────────────────────────────────────────────
+function SitePozeTab(){
+  const BUCKET='product-images'
+  const SB_PUB=SUPABASE_URL+'/storage/v1/object/public/'+BUCKET
+  const [heroUrl,setHeroUrl]=useState(null)
+  const [aboutUrl,setAboutUrl]=useState(null)
+  const [heroStatus,setHeroStatus]=useState('')
+  const [aboutStatus,setAboutStatus]=useState('')
+  const [heroLoading,setHeroLoading]=useState(false)
+  const [aboutLoading,setAboutLoading]=useState(false)
+  const heroInput=useRef(), aboutInput=useRef()
+
+  useEffect(()=>{
+    const nc='?nc='+Date.now()
+    fetch(SB_PUB+'/site/hero-url.txt'+nc).then(r=>r.ok?r.text():null).then(u=>{if(u&&u.startsWith('http'))setHeroUrl(u.trim())}).catch(()=>{})
+    fetch(SB_PUB+'/site/about-url.txt'+nc).then(r=>r.ok?r.text():null).then(u=>{if(u&&u.startsWith('http'))setAboutUrl(u.trim())}).catch(()=>{})
+  },[])
+
+  // Transcodează la JPEG pentru URL fix (fără extensie variabilă)
+  async function toJpeg(file){
+    const img=await createImageBitmap(file)
+    const c=document.createElement('canvas')
+    c.width=img.width; c.height=img.height
+    c.getContext('2d').drawImage(img,0,0)
+    return await new Promise(res=>c.toBlob(res,'image/jpeg',0.85))
+  }
+
+  async function upload(file,storagePath,setUrl,setStatus,setLoading){
+    if(!file||!sb) return
+    setLoading(true); setStatus('Se procesează…')
+    try{
+      const jpeg=await toJpeg(file)
+      const imgPath=storagePath+'.jpg'
+      const{error}=await sb.storage.from(BUCKET).upload(imgPath,jpeg,{upsert:true,contentType:'image/jpeg'})
+      if(error) throw new Error(error.message)
+      const{data}=sb.storage.from(BUCKET).getPublicUrl(imgPath)
+      const url=data.publicUrl+'?t='+Date.now()
+      // Salvează URL în fișier text (fără pos_store, fără RLS)
+      const txt=new Blob([url],{type:'text/plain'})
+      await sb.storage.from(BUCKET).upload(storagePath+'-url.txt',txt,{upsert:true,contentType:'text/plain'})
+      // Actualizează pos_store cu noul URL (UPDATE direct, rândul există)
+      const _storeKey=storagePath.replace('site/','site_')+'_image'
+      const _upd=await sb.from('pos_store')
+        .update({value:url,updated_at:new Date().toISOString()})
+        .eq('restaurant_id',RESTAURANT_ID).eq('store_key',_storeKey)
+      if(_upd.error) console.warn('[POS site-poze] pos_store update error:',_upd.error.message)
+      else console.log('[POS site-poze] pos_store updated ok:',_storeKey,url)
+      setUrl(url); setStatus('✓ Salvat! Apare pe site în câteva secunde.')
+      setTimeout(()=>setStatus(''),3000)
+    }catch(e){ setStatus('Eroare: '+e.message) }
+    finally{ setLoading(false) }
+  }
+
+  async function remove(storagePath,setUrl,setStatus){
+    if(!sb||!window.confirm('Ești sigur că vrei să ștergi poza?')) return
+    await sb.storage.from(BUCKET).remove([storagePath+'.jpg',storagePath+'-url.txt']).catch(()=>{})
+    setUrl(null); setStatus('Poză ștearsă.')
+    setTimeout(()=>setStatus(''),2000)
+  }
+
+  const card=(label,desc,url,status,loading,inputRef,storagePath,setUrl,setStatus,setLoading)=>(
+    <div style={{background:F.surface,borderRadius:16,border:`1px solid ${F.border}`,overflow:'hidden'}}>
+      <div style={{padding:'14px 18px',borderBottom:`1px solid ${F.border}`,display:'flex',alignItems:'center',gap:12}}>
+        <div style={{width:38,height:38,borderRadius:10,background:'#eef0ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🖼️</div>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:F.text}}>{label}</div>
+          <div style={{fontSize:12,color:F.textMuted}}>{desc}</div>
+        </div>
+      </div>
+      {url
+        ?<div style={{margin:16,borderRadius:12,overflow:'hidden',background:'#f5f5f7',aspectRatio:'16/7',position:'relative'}}>
+            <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+          </div>
+        :<div style={{margin:16,borderRadius:12,background:'#f5f5f7',aspectRatio:'16/7',display:'flex',alignItems:'center',justifyContent:'center',color:F.textMuted,fontSize:13}}>
+            Nicio poză încă
+          </div>
+      }
+      <div style={{padding:'12px 16px 16px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <button disabled={loading} onClick={()=>inputRef.current&&inputRef.current.click()}
+          style={{display:'flex',alignItems:'center',gap:7,padding:'10px 18px',borderRadius:10,border:'none',background:F.primary,color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',opacity:loading?.6:1}}>
+          ⬆ {loading?'Se încarcă…':url?'Schimbă poza':'Încarcă poza'}
+        </button>
+        {url&&<button onClick={()=>remove(storagePath,setUrl,setStatus)}
+          style={{padding:'9px 14px',borderRadius:10,border:`1.5px solid ${F.border}`,background:'none',color:F.textMuted,fontSize:13,cursor:'pointer',fontWeight:600}}>
+          Șterge
+        </button>}
+        {status&&<span style={{fontSize:12,fontWeight:600,color:status.startsWith('✓')?'#1a7a47':status.startsWith('Eroare')?'#c0341f':F.primary}}>{status}</span>}
+      </div>
+      <input ref={inputRef} type="file" accept="image/*"
+        style={{position:'fixed',top:-300,left:-300,opacity:0,width:1,height:1}}
+        onChange={e=>{const f=e.target.files&&e.target.files[0];if(f)upload(f,storagePath,setUrl,setStatus,setLoading);e.target.value=''}}/>
+    </div>
+  )
+
+  return <div style={{display:'flex',flexDirection:'column',gap:20,maxWidth:640}}>
+    <div>
+      <div style={{fontWeight:800,fontSize:18,color:F.text,marginBottom:4}}>Poze Site</div>
+      <div style={{fontSize:13,color:F.textMuted}}>Pozele încărcate apar automat pe <b>vladimir-smash.vercel.app</b> în câteva secunde.</div>
+    </div>
+    {card('Poza hero (fundal principal)','Poza mare de pe prima pagină',heroUrl,heroStatus,heroLoading,heroInput,'site/hero',setHeroUrl,setHeroStatus,setHeroLoading)}
+    {card('Poza „Despre noi"','Poza din secțiunea cu povestea restaurantului',aboutUrl,aboutStatus,aboutLoading,aboutInput,'site/about',setAboutUrl,setAboutStatus,setAboutLoading)}
+  </div>
+}
+
 // ── SETARI CULORI ─────────────────────────────────────────────────────────────
 function SetariTab({cats,setCats,btnCfg,setBtnCfg}){
   const setBtn=(k,i,v)=>setBtnCfg(p=>({...p,[k]:p[k].map((c,j)=>j===i?v:c)}))
@@ -1828,7 +2122,11 @@ function App(){
     if(!sb){setReady(true);return}
     Promise.resolve(sb.from('pos_store').select('store_key,value').eq('restaurant_id',RESTAURANT_ID))
       .then(({data})=>{
-        if(data&&data.length>0) data.forEach(({store_key,value})=>{try{localStorage.setItem(store_key,JSON.stringify(value))}catch{}})
+        if(data&&data.length>0) data.forEach(({store_key,value})=>{try{
+          // value din Supabase JSONB poate fi string sau object — nu re-serializăm string-urile
+          const toStore = typeof value === 'string' ? value : JSON.stringify(value);
+          localStorage.setItem(store_key, toStore);
+        }catch{}})
       })
       .catch(()=>{})
       .finally(()=>setReady(true))
