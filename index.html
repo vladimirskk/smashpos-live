@@ -50,6 +50,17 @@ const UPSELL_CATS = [
   { cat:'desert',  label:'Desert?'  },
 ]
 
+
+const AMBALAJ_CATS=['burgeri','cartofi']
+function calcAmbalaj(items){
+  const eligible=items.filter(i=>AMBALAJ_CATS.includes(i.cat))
+  if(!eligible.length) return []
+  const totalQty=eligible.reduce((s,i)=>s+i.qty,0)
+  return [
+    {id:'__ambalaj__',name:'Ambalaj',price:1,qty:totalQty,cat:'__extra__',unit:'buc',line_total:totalQty},
+    {id:'__punga__',name:'Punga',price:1,qty:1,cat:'__extra__',unit:'buc',line_total:1}
+  ]
+}
 // PWA fullscreen meta — injectat în <head> la pornire
 if(typeof document!=='undefined'){
   const addMeta=(n,c)=>{if(!document.querySelector(`meta[name="${n}"]`)){const m=document.createElement('meta');m.name=n;m.content=c;document.head.appendChild(m)}}
@@ -749,8 +760,9 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   }
   const doPay=(method,livrareInfo=null,itemsO=null,numO=null)=>{
     const ci=itemsO??cart;deductStock(ci)
-    const s=ci.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
-    const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:[...ci],subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
+    const ambalajPay=calcAmbalaj(ci);const allCi=[...ci,...ambalajPay]
+    const s=allCi.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
+    const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:allCi,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
     setOrders(p=>[order,...p])
     if(livrareInfo) setCustomers(prev=>{const ex=prev.find(c=>c.phone===livrareInfo.phone);if(ex)return prev.map(c=>c.phone===livrareInfo.phone?{...c,orderCount:(c.orderCount||0)+1}:c);return[...prev,{id:Date.now(),phone:livrareInfo.phone,name:livrareInfo.name,address:livrareInfo.address||'',orderCount:1}]})
     if(!itemsO){setPaid(order);setFiscalSt(null);setCart([])}
@@ -768,8 +780,9 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       setCart([])
     } else {
       deductStock(finalCart)
-      const s=finalCart.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
-      const order={id:ts,num:orders.length+50,emp_id:employee.id,emp_name:employee.name,method:action,items:finalCart,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}
+      const ambalaj=calcAmbalaj(finalCart);const allItems=[...finalCart,...ambalaj]
+      const s=allItems.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
+      const order={id:ts,num:orders.length+50,emp_id:employee.id,emp_name:employee.name,method:action,items:allItems,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}
       setOrders(p=>[order,...p]);setPaid(order);setFiscalSt(null);setCart([])
     }
   }
@@ -854,7 +867,8 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{total.toFixed(2)} RON</span></div>
+          {calcAmbalaj(cart).length>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:F.textMuted,marginBottom:3}}><span>Ambalaj + pungă</span><span>+{(calcAmbalaj(cart).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>}
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{(total+calcAmbalaj(cart).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
           <GBtn from={B.kitchen[0]} to={B.kitchen[1]} onClick={()=>triggerWithUpsell('kitchen')} disabled={cart.length===0} style={{height:52,fontSize:14,width:'100%'}}>{orderType===2?'Trimite — Livrare':'Trimite Bucatarie'}</GBtn>
