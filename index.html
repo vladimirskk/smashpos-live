@@ -51,9 +51,8 @@ const UPSELL_CATS = [
 ]
 
 
-const AMBALAJ_CATS=['burgeri','cartofi']
-function calcAmbalaj(items){
-  const eligible=items.filter(i=>AMBALAJ_CATS.includes(i.cat))
+function calcAmbalaj(items,cats){
+  const eligible=items.filter(i=>(cats||[]).find(c=>c.id===i.cat)?.ambalaj)
   if(!eligible.length) return []
   const totalQty=eligible.reduce((s,i)=>s+i.qty,0)
   return [
@@ -109,8 +108,8 @@ function getWeek(d){const s=new Date(d);s.setHours(0,0,0,0);s.setDate(s.getDate(
 
 // ── Seed ──────────────────────────────────────────────────────────────────────
 const INIT_CATS=[
-  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30',fontSize:12,bold:true},
-  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a',fontSize:12,bold:true},
+  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30',fontSize:12,bold:true,ambalaj:true},
+  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a',fontSize:12,bold:true,ambalaj:true},
   {id:'bauturi',name:'Bauturi',from:'#0040cc',to:'#007aff',fontSize:12,bold:true},
   {id:'sosuri', name:'Sosuri', from:'#1a7a3c',to:'#30d158',fontSize:12,bold:true},
   {id:'desert', name:'Deserturi',from:'#8b1a6b',to:'#ff375f',fontSize:12,bold:true},
@@ -760,7 +759,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   }
   const doPay=(method,livrareInfo=null,itemsO=null,numO=null)=>{
     const ci=itemsO??cart;deductStock(ci)
-    const ambalajPay=calcAmbalaj(ci);const allCi=[...ci,...ambalajPay]
+    const ambalajPay=calcAmbalaj(ci,cats);const allCi=[...ci,...ambalajPay]
     const s=allCi.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
     const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:allCi,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
     setOrders(p=>[order,...p])
@@ -780,7 +779,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       setCart([])
     } else {
       deductStock(finalCart)
-      const ambalaj=calcAmbalaj(finalCart);const allItems=[...finalCart,...ambalaj]
+      const ambalaj=calcAmbalaj(finalCart,cats);const allItems=[...finalCart,...ambalaj]
       const s=allItems.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
       const order={id:ts,num:orders.length+50,emp_id:employee.id,emp_name:employee.name,method:action,items:allItems,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}
       setOrders(p=>[order,...p]);setPaid(order);setFiscalSt(null);setCart([])
@@ -867,8 +866,8 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
-          {calcAmbalaj(cart).length>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:F.textMuted,marginBottom:3}}><span>Ambalaj + pungă</span><span>+{(calcAmbalaj(cart).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>}
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{(total+calcAmbalaj(cart).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>
+          {calcAmbalaj(cart,cats).length>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:F.textMuted,marginBottom:3}}><span>Ambalaj + pungă</span><span>+{(calcAmbalaj(cart,cats).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>}
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{(total+calcAmbalaj(cart,cats).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
           <GBtn from={B.kitchen[0]} to={B.kitchen[1]} onClick={()=>triggerWithUpsell('kitchen')} disabled={cart.length===0} style={{height:52,fontSize:14,width:'100%'}}>{orderType===2?'Trimite — Livrare':'Trimite Bucatarie'}</GBtn>
@@ -1298,7 +1297,7 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
         <div key={cat.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:grad(cat.from,cat.to),flexShrink:0}}/>
           <input value={cat.name} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,name:e.target.value}:c))} style={{flex:1,padding:'6px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}/>
-          <ColorDot value={cat.from} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,from:v}:c))}/><ColorDot value={cat.to} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,to:v}:c))}/>
+          <ColorDot value={cat.from} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,from:v}:c))}/><ColorDot value={cat.to} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,to:v}:c))}/><label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:11,fontWeight:600,color:cat.ambalaj?'#1a7a3c':F.textMuted,whiteSpace:'nowrap'}}><input type="checkbox" checked={!!cat.ambalaj} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,ambalaj:e.target.checked}:c))} style={{width:14,height:14}}/>ambalaj</label>
           <button onClick={()=>setCats(p=>p.filter(c=>c.id!==cat.id))} style={{background:'#fff2f1',border:'none',color:'#c0392b',borderRadius:6,padding:'5px 9px',cursor:'pointer',fontSize:12,fontFamily:ff}}>-</button>
         </div>
       ))}
