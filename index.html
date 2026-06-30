@@ -36,7 +36,7 @@ async function sendFiscalReceipt(items, total, method){
     const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
     const data=await res.json()
-    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||'Eroare casă')
+    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||JSON.stringify(data)||'Eroare casă')
     return {ok:true,nr:data.ReceiptNumber||'?'}
   }catch(e){return {ok:false,err:e.message}}
 }
