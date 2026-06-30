@@ -767,8 +767,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:allCi,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
     setOrders(p=>[order,...p])
     if(livrareInfo) setCustomers(prev=>{const ex=prev.find(c=>c.phone===livrareInfo.phone);if(ex)return prev.map(c=>c.phone===livrareInfo.phone?{...c,orderCount:(c.orderCount||0)+1}:c);return[...prev,{id:Date.now(),phone:livrareInfo.phone,name:livrareInfo.name,address:livrareInfo.address||'',orderCount:1}]})
-    if(!itemsO){setCart([])}
-    setPaid(order);setFiscalSt(null);
+    if(!itemsO){setPaid(order);setFiscalSt(null);setCart([])}
     return order
   }
   const triggerWithUpsell=action=>{if(cart.length===0)return;executeAction(action,[])}
@@ -795,7 +794,14 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:[...cart],subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
     setCart([])
   }
-  const payKO=(koId,method)=>{const ko=kitchenOrders.find(o=>o.id===koId);if(ko){doPay(method,ko.livrare??null,ko.items,ko.num);setKitchenOrders(p=>p.filter(o=>o.id!==koId))}}
+  const payKO=(koId,method)=>{
+    const ko=kitchenOrders.find(o=>o.id===koId)
+    if(ko){
+      const order=doPay(method,ko.livrare??null,ko.items,ko.num)
+      setKitchenOrders(p=>p.filter(o=>o.id!==koId))
+      if(order) sendFiscalReceipt(order.items,order.total,method).catch(()=>{})
+    }
+  }
   const cancelKO=(koId)=>setKitchenOrders(p=>p.filter(o=>o.id!==koId))
   const addToKO=(koId,newItems)=>setKitchenOrders(prev=>prev.map(o=>{
     if(o.id!==koId)return o
