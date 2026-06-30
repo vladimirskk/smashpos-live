@@ -756,7 +756,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     if(!itemsO){setPaid(order);setFiscalSt(null);setCart([])}
     return order
   }
-  const triggerWithUpsell=action=>{if(cart.length===0)return;setPendingAction(action);setShowUpsell(true)}
+  const triggerWithUpsell=action=>{if(cart.length===0)return;executeAction(action,[])}
   const executeAction=(action,upsellItems=[])=>{
     setShowUpsell(false)
     const finalCart=[...cart]
@@ -870,7 +870,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
         </div>
       </div>
     </div>
-    {showUpsell&&<UpsellChecklist cart={cart} products={products} onConfirm={ui=>executeAction(pendingAction,ui)} onSkip={()=>executeAction(pendingAction,[])}/>}
+    
     {showProtocol&&<ProtocolModal employee={employee} onClose={()=>setShowProtocol(false)} onSave={p=>{setProtocols(prev=>[p,...prev]);setShowProtocol(false)}}/>}
     {showPierderi&&<PierderModal employee={employee} stock={stock} onClose={()=>setShowPierderi(false)} onSave={p=>{
       const ns={...stock};p.items.forEach(r=>{if(ns[r.ing]){const q=convertQtyToStockUnit(r.qty,r.unit,ns[r.ing].unit);ns[r.ing]={...ns[r.ing],qty:Math.max(0,ns[r.ing].qty-q)}}});setStock(ns);setPierderi(prev=>[p,...prev]);setShowPierderi(false)
