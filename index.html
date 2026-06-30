@@ -31,8 +31,16 @@ async function sendFiscalReceipt(items, total, method){
       const unit=(it.unit||'buc').substring(0,8)
       return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
-    const totalBani=Math.round(total*100)
-    lines.push(`P^${method==='cash'?1:2}^${totalBani}`)
+    // Calculate total from actual S-lines to avoid NUMERAR/REST mismatch on Datecs
+    const actualTotalBani=lines.reduce((sum,line)=>{
+      if(!line.startsWith('S^')) return sum
+      const p=line.split('^')
+      // S^name^priceBani^qtyMilli^unit^vat^multiplier
+      const priceBani=Number(p[2])||0
+      const multiplier=Number(p[6])||1
+      return sum+priceBani*multiplier
+    },0)
+    lines.push(`P^${method==='cash'?1:2}^${actualTotalBani}`)
     const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
     const data=await res.json()
