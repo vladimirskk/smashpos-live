@@ -29,28 +29,25 @@ function fetchWithTimeout(url,opts,ms){
   const id=setTimeout(()=>ctrl.abort(),ms)
   return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id))
 }
-async function probeDatecs(ip){
+async function sendFiscalReceipt(items, total, method){
   try{
-    const r=await fetchWithTimeout(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0'])},1500)
-    if(r.ok||r.status===400||r.status===500) return ip
-  }catch(e){}
-  return null
-}
-async function findDatecs(){
-  if(_datecs_ip){
-    const ok=await probeDatecs(_datecs_ip)
-    if(ok) return _datecs_ip
-    _datecs_ip=null
-  }
-  // Scan all 192.168.0.1-254 in parallel batches of 30
-  const all=Array.from({length:254},(_,i)=>`192.168.0.${i+1}`)
-  for(let i=0;i<all.length;i+=30){
-    const batch=all.slice(i,i+30)
-    const results=await Promise.all(batch.map(ip=>probeDatecs(ip)))
-    const found=results.find(Boolean)
-    if(found){_datecs_ip=found;return found}
-  }
-  return null
+    const savedIp=localStorage.getItem('pos_datecs_ip')||'192.168.0.178'
+    const lines=items.map(it=>{
+      const pBani=Math.round(it.price*100)
+      const name=(it.name||'Produs').substring(0,36).replace(/\^/g,'-')
+      const unit=(it.unit||'buc').substring(0,8)
+      return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
+    })
+    const actualTotalBani=lines.filter(l=>l.startsWith('S^')).reduce((sum,line)=>{
+      const p=line.split('^');return sum+(Number(p[2])||0)*(Number(p[6])||1)
+    },0)
+    lines.push(`P^${method==='cash'?1:2}^${actualTotalBani}`)
+    const res=await fetchWithTimeout(`http://${savedIp}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)},8000)
+    if(!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data=await res.json()
+    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||JSON.stringify(data)||'Eroare casă')
+    return {ok:true,nr:data.ReceiptNumber||'?'}
+  }catch(e){return {ok:false,err:e.message}}
 }
 async function sendFiscalReceipt(items, total, method){
   try{
@@ -1929,8 +1926,18 @@ function SitePozeTab(){
 // ── SETARI CULORI ─────────────────────────────────────────────────────────────
 function SetariTab({cats,setCats,btnCfg,setBtnCfg}){
   const setBtn=(k,i,v)=>setBtnCfg(p=>({...p,[k]:p[k].map((c,j)=>j===i?v:c)}))
+  const [datecsIp,setDatecsIp]=useState(()=>localStorage.getItem('pos_datecs_ip')||'192.168.0.178')
+  const saveIp=ip=>{setDatecsIp(ip);localStorage.setItem('pos_datecs_ip',ip)}
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    <div style={{fontSize:17,fontWeight:700,color:F.text}}>Setari culori</div>
+    <div style={{fontSize:17,fontWeight:700,color:F.text}}>Setari</div>
+    <Card style={{padding:16}}>
+      <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>🖨️ Casa de marcat — IP</div>
+      <div style={{display:'flex',gap:10,alignItems:'center'}}>
+        <input value={datecsIp} onChange={e=>saveIp(e.target.value)} placeholder="192.168.0.178" style={{flex:1,padding:'10px 14px',border:`2px solid ${F.border}`,borderRadius:10,fontSize:15,fontFamily:ff,fontWeight:600,color:F.text}}/>
+        <div style={{fontSize:12,color:F.textMuted,whiteSpace:'nowrap'}}>port: 65400</div>
+      </div>
+      <div style={{fontSize:11,color:F.textMuted,marginTop:8}}>Dacă bonul nu merge, verifică IP-ul casei din meniul Datecs și actualizează-l aici.</div>
+    </Card>
     <Card style={{padding:16}}>
       <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Butoane POS</div>
       {[['kitchen','Trimite Bucatarie'],['cash','Cash'],['card','Card'],['protocol','Protocol']].map(([k,l])=>(
