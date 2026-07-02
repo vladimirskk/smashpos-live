@@ -490,11 +490,10 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,o
             </div>}
             <div style={{padding:'10px 14px',display:'flex',gap:7}}>
               {addingTo!==o.id&&<button onClick={()=>startAdding(o.id)} style={{flex:1,padding:'9px 0',borderRadius:10,border:`1.5px solid ${F.border}`,background:'#f5f5f7',fontFamily:ff,fontSize:13,fontWeight:600,cursor:'pointer',color:F.text}}>+ Adaugă</button>}
-              {(()=>{const st=payingKO[o.id];return(<>
-                <GBtn from={st?'#888':'#1a7a3c'} to={st?'#aaa':'#30d158'} onClick={()=>!st&&onPay(o.id,'cash')} disabled={!!st} style={{flex:1,padding:'10px 0',fontSize:14}}>{st==='loading'?'⏳':'Cash'}</GBtn>
-                {!o.livrare&&<GBtn from={st?'#888':'#c0392b'} to={st?'#aaa':'#ff3b30'} onClick={()=>!st&&onPay(o.id,'card')} disabled={!!st} style={{flex:1,padding:'10px 0',fontSize:14}}>{st==='loading'?'⏳':'Card'}</GBtn>}
-                <button onClick={()=>setCancelId(o.id)} style={{padding:'10px 12px',borderRadius:10,border:'1.5px solid #ffb3b3',background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>X</button>
-              </>)})()}
+              <GBtn from={payingKO[o.id]?'#888':'#1a7a3c'} to={payingKO[o.id]?'#aaa':'#30d158'} onClick={()=>!payingKO[o.id]&&onPay(o.id,'cash')} disabled={!!payingKO[o.id]} style={{flex:1,padding:'10px 0',fontSize:14}}>{payingKO[o.id]==='loading'?'...':'Cash'}</GBtn>
+              {!o.livrare&&<GBtn from={payingKO[o.id]?'#888':'#c0392b'} to={payingKO[o.id]?'#aaa':'#ff3b30'} onClick={()=>!payingKO[o.id]&&onPay(o.id,'card')} disabled={!!payingKO[o.id]} style={{flex:1,padding:'10px 0',fontSize:14}}>{payingKO[o.id]==='loading'?'...':'Card'}</GBtn>}
+              <button onClick={()=>setCancelId(o.id)} style={{padding:'10px 12px',borderRadius:10,border:'1.5px solid #ffb3b3',background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>X</button>
+            </div>
           </div>
         ))}
       </div>
