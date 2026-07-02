@@ -418,7 +418,7 @@ function LivrareModal({onClose,onConfirm,customers}){
   </div>
 }
 
-function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,onCancel,payingKO={}}){
+function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,onCancel}){
   const [addingTo,setAddingTo]=useState(null)
   const [cancelId,setCancelId]=useState(null)
   const [extraCat,setExtraCat]=useState(null)
@@ -456,7 +456,7 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,o
                     {o.livrare.notes&&<div style={{fontSize:10,color:'rgba(255,255,255,0.8)',fontStyle:'italic'}}>{o.livrare.notes}</div>}
                   </div>}
                 </div>
-                <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total)}</div>
+                <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total+calcAmbalaj(o.items,cats).reduce((s,i)=>s+i.price*i.qty,0))}</div>
               </div>
             </div>
             <div style={{padding:'10px 14px'}}>
@@ -490,8 +490,8 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,o
             </div>}
             <div style={{padding:'10px 14px',display:'flex',gap:7}}>
               {addingTo!==o.id&&<button onClick={()=>startAdding(o.id)} style={{flex:1,padding:'9px 0',borderRadius:10,border:`1.5px solid ${F.border}`,background:'#f5f5f7',fontFamily:ff,fontSize:13,fontWeight:600,cursor:'pointer',color:F.text}}>+ Adaugă</button>}
-              <GBtn from={payingKO[o.id]?'#888':'#1a7a3c'} to={payingKO[o.id]?'#aaa':'#30d158'} onClick={()=>!payingKO[o.id]&&onPay(o.id,'cash')} disabled={!!payingKO[o.id]} style={{flex:1,padding:'10px 0',fontSize:14}}>{payingKO[o.id]==='loading'?'...':'Cash'}</GBtn>
-              {!o.livrare&&<GBtn from={payingKO[o.id]?'#888':'#c0392b'} to={payingKO[o.id]?'#aaa':'#ff3b30'} onClick={()=>!payingKO[o.id]&&onPay(o.id,'card')} disabled={!!payingKO[o.id]} style={{flex:1,padding:'10px 0',fontSize:14}}>{payingKO[o.id]==='loading'?'...':'Card'}</GBtn>}
+              <GBtn from='#1a7a3c' to='#30d158' onClick={()=>onPay(o.id,'cash')} style={{flex:1,padding:'10px 0',fontSize:14}}>Cash</GBtn>
+              {!o.livrare&&<GBtn from='#c0392b' to='#ff3b30' onClick={()=>onPay(o.id,'card')} style={{flex:1,padding:'10px 0',fontSize:14}}>Card</GBtn>}
               <button onClick={()=>setCancelId(o.id)} style={{padding:'10px 12px',borderRadius:10,border:'1.5px solid #ffb3b3',background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>X</button>
             </div>
           </div>
@@ -795,21 +795,13 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:[...cart],subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
     setCart([])
   }
-  const [payingKO,setPayingKO]=useState({})
-  const payKO=async(koId,method)=>{
+  const payKO=(koId,method)=>{
     const ko=kitchenOrders.find(o=>o.id===koId);if(!ko)return
-    setPayingKO(p=>({...p,[koId]:'loading'}))
     const amb=calcAmbalaj(ko.items,cats)
     const allItems=[...ko.items,...amb]
     const order=doPay(method,ko.livrare??null,allItems,ko.num)
     setKitchenOrders(p=>p.filter(o=>o.id!==koId))
-    if(order){
-      const result=await sendFiscalReceipt(order.items,order.total,method)
-      if(!result.ok){
-        alert('Bon fiscal: '+result.err)
-      }
-    }
-    setPayingKO(p=>{const n={...p};delete n[koId];return n})
+    if(order) sendFiscalReceipt(order.items,order.total,method).then(r=>{if(!r.ok)alert('Bon fiscal: '+r.err)}).catch(()=>{})
   }
   const cancelKO=(koId)=>setKitchenOrders(p=>p.filter(o=>o.id!==koId))
   const addToKO=(koId,newItems)=>setKitchenOrders(prev=>prev.map(o=>{
@@ -909,7 +901,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       const ns={...stock};p.items.forEach(r=>{if(ns[r.ing]){const q=convertQtyToStockUnit(r.qty,r.unit,ns[r.ing].unit);ns[r.ing]={...ns[r.ing],qty:Math.max(0,ns[r.ing].qty-q)}}});setStock(ns);setPierderi(prev=>[p,...prev]);setShowPierderi(false)
     }}/>}
     {showLivrare&&<LivrareModal customers={customers} onClose={()=>setShowLivrare(false)} onConfirm={confirmLivrare}/>}
-    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={cancelKO} payingKO={payingKO}/>}
+    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={cancelKO}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
     {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
     {showOnline&&<ComenziOnlineModal orders={onlineOrders} onAccept={acceptOnline} onReject={rejectOnline} onClose={()=>setShowOnline(false)}/>}
