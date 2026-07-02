@@ -17,12 +17,30 @@ const F = { bg:'#f0f4ff', surface:'#fff', border:'#e2e8ff', text:'#0a0f2e', text
 const grad = (a,b,deg=135) => `linear-gradient(${deg}deg,${a},${b})`
 const fmt = n => `${Number(n||0).toFixed(2)} RON`
 const VAT = 0
-const FISCAL_URL = 'http://192.168.0.178:65400/api/Receipt'
+const FISCAL_PORT = 65400
+let _datecs_ip = null // cached IP after first successful connection
 const SUPABASE_URL = 'https://nabugijoikxqqztwpzyj.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5hYnVnaWpvaWt4cXF6dHdwenlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NzU3ODIsImV4cCI6MjA5NTQ1MTc4Mn0.85BSs-LnmMlP-FHCkneXr73JEMjF4xieHbf9IkMdt7k'
 const RESTAURANT_ID = 'vladimirsmash'
 const supabaseCreateClient = (typeof supabase !== 'undefined' && supabase && supabase.createClient) ? supabase.createClient : null
 const sb = supabaseCreateClient ? supabaseCreateClient(SUPABASE_URL, SUPABASE_KEY) : null
+let _datecs_ip=null
+async function findDatecs(){
+  if(_datecs_ip){
+    try{
+      const r=await fetch(`http://${_datecs_ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0']),signal:AbortSignal.timeout(1500)})
+      if(r.ok||r.status===400||r.status===500) return _datecs_ip
+    }catch(e){}
+    _datecs_ip=null
+  }
+  const candidates=Array.from({length:101},(_,i)=>`192.168.0.${100+i}`)
+  const found=await Promise.any(candidates.map(ip=>
+    fetch(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0']),signal:AbortSignal.timeout(1500)})
+    .then(r=>{if(r.ok||r.status===400||r.status===500)return ip;throw new Error('no')})
+  )).catch(()=>null)
+  if(found) _datecs_ip=found
+  return found
+}
 async function sendFiscalReceipt(items, total, method){
   try{
     const lines=items.map(it=>{
@@ -31,15 +49,17 @@ async function sendFiscalReceipt(items, total, method){
       const unit=(it.unit||'buc').substring(0,8)
       return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
-    // Payment = sum(priceBani × qty) from S-lines → NUMERAR always = TOTAL
     const actualTotalBani=lines.filter(l=>l.startsWith('S^')).reduce((sum,line)=>{
       const p=line.split('^');return sum+(Number(p[2])||0)*(Number(p[6])||1)
     },0)
     lines.push(`P^${method==='cash'?1:2}^${actualTotalBani}`)
-    const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
+    const ip=await findDatecs()
+    if(!ip) throw new Error('Casa de marcat nu a fost găsită în rețea')
+    const res=await fetch(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
     const data=await res.json()
     if(!data.ReceiptStatus) throw new Error(data.ReceiptError||JSON.stringify(data)||'Eroare casă')
+    _datecs_ip=ip
     return {ok:true,nr:data.ReceiptNumber||'?'}
   }catch(e){return {ok:false,err:e.message}}
 }
