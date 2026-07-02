@@ -17,38 +17,12 @@ const F = { bg:'#f0f4ff', surface:'#fff', border:'#e2e8ff', text:'#0a0f2e', text
 const grad = (a,b,deg=135) => `linear-gradient(${deg}deg,${a},${b})`
 const fmt = n => `${Number(n||0).toFixed(2)} RON`
 const VAT = 0
-const FISCAL_PORT = 65400
+const FISCAL_URL = ()=>`http://${localStorage.getItem('pos_datecs_ip')||'192.168.0.178'}:65400/api/Receipt`
 const SUPABASE_URL = 'https://nabugijoikxqqztwpzyj.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5hYnVnaWpvaWt4cXF6dHdwenlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NzU3ODIsImV4cCI6MjA5NTQ1MTc4Mn0.85BSs-LnmMlP-FHCkneXr73JEMjF4xieHbf9IkMdt7k'
 const RESTAURANT_ID = 'vladimirsmash'
 const supabaseCreateClient = (typeof supabase !== 'undefined' && supabase && supabase.createClient) ? supabase.createClient : null
 const sb = supabaseCreateClient ? supabaseCreateClient(SUPABASE_URL, SUPABASE_KEY) : null
-let _datecs_ip=null
-function fetchWithTimeout(url,opts,ms){
-  const ctrl=new AbortController()
-  const id=setTimeout(()=>ctrl.abort(),ms)
-  return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id))
-}
-async function sendFiscalReceipt(items, total, method){
-  try{
-    const savedIp=localStorage.getItem('pos_datecs_ip')||'192.168.0.178'
-    const lines=items.map(it=>{
-      const pBani=Math.round(it.price*100)
-      const name=(it.name||'Produs').substring(0,36).replace(/\^/g,'-')
-      const unit=(it.unit||'buc').substring(0,8)
-      return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
-    })
-    const actualTotalBani=lines.filter(l=>l.startsWith('S^')).reduce((sum,line)=>{
-      const p=line.split('^');return sum+(Number(p[2])||0)*(Number(p[6])||1)
-    },0)
-    lines.push(`P^${method==='cash'?1:2}^${actualTotalBani}`)
-    const res=await fetchWithTimeout(`http://${savedIp}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)},8000)
-    if(!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data=await res.json()
-    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||JSON.stringify(data)||'Eroare casă')
-    return {ok:true,nr:data.ReceiptNumber||'?'}
-  }catch(e){return {ok:false,err:e.message}}
-}
 async function sendFiscalReceipt(items, total, method){
   try{
     const lines=items.map(it=>{
@@ -57,17 +31,13 @@ async function sendFiscalReceipt(items, total, method){
       const unit=(it.unit||'buc').substring(0,8)
       return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
-    const actualTotalBani=lines.filter(l=>l.startsWith('S^')).reduce((sum,line)=>{
-      const p=line.split('^');return sum+(Number(p[2])||0)*(Number(p[6])||1)
-    },0)
-    lines.push(`P^${method==='cash'?1:2}^${actualTotalBani}`)
-    const ip=await findDatecs()
-    if(!ip) throw new Error('Casa de marcat nu a fost găsită în rețea')
-    const res=await fetch(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
+    const totalBani=Math.round(total*100)
+    const actualBani=lines.filter(l=>l.startsWith('S^')).reduce((s,l)=>{const p=l.split('^');return s+(Number(p[2])||0)*(Number(p[6])||1)},0)
+    lines.push(`P^${method==='cash'?1:2}^${actualBani}`)
+    const res=await fetch(FISCAL_URL(),{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
     const data=await res.json()
-    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||JSON.stringify(data)||'Eroare casă')
-    _datecs_ip=ip
+    if(!data.ReceiptStatus) throw new Error(data.ReceiptError||'Eroare casă')
     return {ok:true,nr:data.ReceiptNumber||'?'}
   }catch(e){return {ok:false,err:e.message}}
 }
@@ -80,7 +50,6 @@ const UPSELL_CATS = [
   { cat:'sosuri',  label:'Sos?'     },
   { cat:'desert',  label:'Desert?'  },
 ]
-
 
 function calcAmbalaj(items,cats){
   const eligible=items.filter(i=>(cats||[]).find(c=>c.id===i.cat)?.ambalaj)
@@ -447,7 +416,7 @@ function LivrareModal({onClose,onConfirm,customers}){
   </div>
 }
 
-function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,onCancel,payingKO={}}){
+function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,onCancel}){
   const [addingTo,setAddingTo]=useState(null)
   const [cancelId,setCancelId]=useState(null)
   const [extraCat,setExtraCat]=useState(null)
@@ -464,7 +433,7 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,o
         <div style={{fontSize:18,fontWeight:800,color:F.text}}>Bucatarie — Comenzi active</div>
         <button onClick={onClose} style={{background:'#f5f5f7',border:'none',borderRadius:8,padding:'7px 14px',fontFamily:ff,fontSize:13,fontWeight:600,cursor:'pointer'}}>Inchide</button>
       </div>
-      {cancelId&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}><div style={{background:'#fff',borderRadius:16,padding:28,maxWidth:320,width:'100%',fontFamily:ff,textAlign:'center'}}><div style={{fontSize:15,fontWeight:600,color:F.text,marginBottom:20}}>Anulezi comanda?</div><div style={{display:'flex',gap:10}}><button onClick={()=>setCancelId(null)} style={{flex:1,padding:'11px',borderRadius:10,border:`1px solid ${F.border}`,background:'#f5f5f7',fontFamily:ff,fontSize:14,fontWeight:600,cursor:'pointer'}}>Nu</button><GBtn from='#c0392b' to='#ff3b30' onClick={()=>{onCancel(cancelId);setCancelId(null)}} style={{flex:1,padding:'11px',fontSize:14}}>Da, anulează</GBtn></div></div></div>}
+      {cancelId&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}><div style={{background:'#fff',borderRadius:16,padding:28,maxWidth:320,width:'100%',fontFamily:ff,textAlign:'center'}}><div style={{fontSize:15,fontWeight:600,color:F.text,marginBottom:20}}>Anulezi comanda?</div><div style={{display:'flex',gap:10}}><button onClick={()=>setCancelId(null)} style={{flex:1,padding:'11px',borderRadius:10,border:`1px solid ${F.border}`,background:'#f5f5f7',fontFamily:ff,fontSize:14,fontWeight:600,cursor:'pointer'}}>Nu</button><GBtn from='#c0392b' to='#ff3b30' onClick={()=>{onCancel(cancelId);setCancelId(null)}} style={{flex:1,padding:'11px',fontSize:14}}>Da, anuleaza</GBtn></div></div></div>}
       {kitchenOrders.length===0&&<div style={{textAlign:'center',color:F.textMuted,padding:40}}>Nicio comanda in bucatarie</div>}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
         {kitchenOrders.map(o=>(
@@ -519,11 +488,8 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,o
             </div>}
             <div style={{padding:'10px 14px',display:'flex',gap:7}}>
               {addingTo!==o.id&&<button onClick={()=>startAdding(o.id)} style={{flex:1,padding:'9px 0',borderRadius:10,border:`1.5px solid ${F.border}`,background:'#f5f5f7',fontFamily:ff,fontSize:13,fontWeight:600,cursor:'pointer',color:F.text}}>+ Adaugă</button>}
-              {(()=>{const st=payingKO[o.id];const isErr=st&&st.startsWith('err');return(<>
-                <GBtn from={st?'#888':'#1a7a3c'} to={st?'#aaa':'#30d158'} onClick={()=>!st&&onPay(o.id,'cash')} disabled={!!st} style={{flex:1,padding:'10px 0',fontSize:14}}>{st==='loading'?'⏳ ...':isErr?'❌ Err':'Cash'}</GBtn>
-                {!o.livrare&&<GBtn from={st?'#888':'#c0392b'} to={st?'#aaa':'#ff3b30'} onClick={()=>!st&&onPay(o.id,'card')} disabled={!!st} style={{flex:1,padding:'10px 0',fontSize:14}}>{st==='loading'?'⏳ ...':isErr?'❌ '+st.slice(4):'Card'}</GBtn>}
-              </>)})()} 
-              <button onClick={()=>setCancelId(o.id)} style={{padding:'10px 12px',borderRadius:10,border:'1.5px solid #ffb3b3',background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>✕</button>
+              <GBtn from='#1a7a3c' to='#30d158' onClick={()=>onPay(o.id,'cash')} style={{flex:1,padding:'10px 0',fontSize:14}}>Cash</GBtn>
+              {!o.livrare&&<GBtn from='#c0392b' to='#ff3b30' onClick={()=>onPay(o.id,'card')} style={{flex:1,padding:'10px 0',fontSize:14}}>Card</GBtn>}
             </div>
           </div>
         ))}
@@ -795,9 +761,8 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   }
   const doPay=(method,livrareInfo=null,itemsO=null,numO=null)=>{
     const ci=itemsO??cart;deductStock(ci)
-    const ambalajPay=calcAmbalaj(ci,cats);const allCi=[...ci,...ambalajPay]
-    const s=allCi.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
-    const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:allCi,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
+    const s=ci.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
+    const order={id:ts,num:numO??(orders.length+50),emp_id:employee.id,emp_name:employee.name,method,items:[...ci],subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:livrareInfo}
     setOrders(p=>[order,...p])
     if(livrareInfo) setCustomers(prev=>{const ex=prev.find(c=>c.phone===livrareInfo.phone);if(ex)return prev.map(c=>c.phone===livrareInfo.phone?{...c,orderCount:(c.orderCount||0)+1}:c);return[...prev,{id:Date.now(),phone:livrareInfo.phone,name:livrareInfo.name,address:livrareInfo.address||'',orderCount:1}]})
     if(!itemsO){setPaid(order);setFiscalSt(null);setCart([])}
@@ -815,7 +780,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       setCart([])
     } else {
       deductStock(finalCart)
-      const ambalaj=calcAmbalaj(finalCart,cats);const allItems=[...finalCart,...ambalaj]
+      const amb=calcAmbalaj(finalCart,cats);const allItems=[...finalCart,...amb]
       const s=allItems.reduce((a,i)=>a+i.price*i.qty,0),v=Math.round(s*VAT*100)/100,dt=new Date(),ts=dt.getTime()
       const order={id:ts,num:orders.length+50,emp_id:employee.id,emp_name:employee.name,method:action,items:allItems,subtotal:s,vat:v,total:s+v,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}
       setOrders(p=>[order,...p]);setPaid(order);setFiscalSt(null);setCart([])
@@ -827,22 +792,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:[...cart],subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
     setCart([])
   }
-  const [payingKO,setPayingKO]=useState({}) // {koId: 'loading'|'ok'|'err'}
-  const payKO=async(koId,method)=>{
-    const ko=kitchenOrders.find(o=>o.id===koId)
-    if(!ko) return
-    setPayingKO(p=>({...p,[koId]:'loading'}))
-    const order=doPay(method,ko.livrare??null,ko.items,ko.num)
-    if(!order){setPayingKO(p=>({...p,[koId]:'err'}));setTimeout(()=>setPayingKO(p=>({...p,[koId]:null})),3000);return}
-    const result=await sendFiscalReceipt(order.items,order.total,method)
-    if(result.ok){
-      setKitchenOrders(p=>p.filter(o=>o.id!==koId))
-      setPayingKO(p=>{const n={...p};delete n[koId];return n})
-    } else {
-      setPayingKO(p=>({...p,[koId]:'err:'+result.err}))
-      setTimeout(()=>setPayingKO(p=>({...p,[koId]:null})),5000)
-    }
-  }
+  const payKO=(koId,method)=>{const ko=kitchenOrders.find(o=>o.id===koId);if(ko){doPay(method,ko.livrare??null,ko.items,ko.num);setKitchenOrders(p=>p.filter(o=>o.id!==koId))}}
   const cancelKO=(koId)=>setKitchenOrders(p=>p.filter(o=>o.id!==koId))
   const addToKO=(koId,newItems)=>setKitchenOrders(prev=>prev.map(o=>{
     if(o.id!==koId)return o
@@ -918,7 +868,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
-          {calcAmbalaj(cart,cats).length>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:F.textMuted,marginBottom:3}}><span>Ambalaj + pungă</span><span>+{(calcAmbalaj(cart,cats).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>}
+          {calcAmbalaj(cart,cats).length>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:F.textMuted,marginBottom:3}}><span>Ambalaj + punga</span><span>+{calcAmbalaj(cart,cats).reduce((s,i)=>s+i.price*i.qty,0).toFixed(2)} RON</span></div>}
           <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{(total+calcAmbalaj(cart,cats).reduce((s,i)=>s+i.price*i.qty,0)).toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
@@ -941,7 +891,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       const ns={...stock};p.items.forEach(r=>{if(ns[r.ing]){const q=convertQtyToStockUnit(r.qty,r.unit,ns[r.ing].unit);ns[r.ing]={...ns[r.ing],qty:Math.max(0,ns[r.ing].qty-q)}}});setStock(ns);setPierderi(prev=>[p,...prev]);setShowPierderi(false)
     }}/>}
     {showLivrare&&<LivrareModal customers={customers} onClose={()=>setShowLivrare(false)} onConfirm={confirmLivrare}/>}
-    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={cancelKO} payingKO={payingKO}/>}
+    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={cancelKO}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
     {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
     {showOnline&&<ComenziOnlineModal orders={onlineOrders} onAccept={acceptOnline} onReject={rejectOnline} onClose={()=>setShowOnline(false)}/>}
@@ -1931,12 +1881,12 @@ function SetariTab({cats,setCats,btnCfg,setBtnCfg}){
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     <div style={{fontSize:17,fontWeight:700,color:F.text}}>Setari</div>
     <Card style={{padding:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Casa de marcat — IP</div>
+      <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Casa de marcat IP</div>
       <div style={{display:'flex',gap:10,alignItems:'center'}}>
-        <input value={datecsIp} onChange={e=>saveIp(e.target.value)} placeholder="192.168.0.178" style={{flex:1,padding:'10px 14px',border:`2px solid ${F.border}`,borderRadius:10,fontSize:15,fontFamily:ff,fontWeight:600,color:F.text}}/>
-        <div style={{fontSize:12,color:F.textMuted,whiteSpace:'nowrap'}}>port: 65400</div>
+        <input value={datecsIp} onChange={e=>saveIp(e.target.value)} placeholder="192.168.0.178" style={{flex:1,padding:'10px 14px',border:"2px solid "+F.border,borderRadius:10,fontSize:15,fontFamily:ff,fontWeight:600,color:F.text}}/>
+        <span style={{fontSize:12,color:F.textMuted}}>:65400</span>
       </div>
-      <div style={{fontSize:11,color:F.textMuted,marginTop:8}}>Dacă bonul nu merge, verifică IP-ul casei din meniul Datecs și actualizează-l aici.</div>
+      <div style={{fontSize:11,color:F.textMuted,marginTop:8}}>Actualizeaza cand se schimba IP-ul casei Datecs.</div>
     </Card>
     <Card style={{padding:16}}>
       <div style={{fontSize:14,fontWeight:700,color:F.text,marginBottom:12}}>Butoane POS</div>
