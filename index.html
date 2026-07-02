@@ -24,21 +24,33 @@ const RESTAURANT_ID = 'vladimirsmash'
 const supabaseCreateClient = (typeof supabase !== 'undefined' && supabase && supabase.createClient) ? supabase.createClient : null
 const sb = supabaseCreateClient ? supabaseCreateClient(SUPABASE_URL, SUPABASE_KEY) : null
 let _datecs_ip=null
+function fetchWithTimeout(url,opts,ms){
+  const ctrl=new AbortController()
+  const id=setTimeout(()=>ctrl.abort(),ms)
+  return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id))
+}
+async function probeDatecs(ip){
+  try{
+    const r=await fetchWithTimeout(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0'])},1500)
+    if(r.ok||r.status===400||r.status===500) return ip
+  }catch(e){}
+  return null
+}
 async function findDatecs(){
   if(_datecs_ip){
-    try{
-      const r=await fetch(`http://${_datecs_ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0']),signal:AbortSignal.timeout(1500)})
-      if(r.ok||r.status===400||r.status===500) return _datecs_ip
-    }catch(e){}
+    const ok=await probeDatecs(_datecs_ip)
+    if(ok) return _datecs_ip
     _datecs_ip=null
   }
-  const candidates=Array.from({length:101},(_,i)=>`192.168.0.${100+i}`)
-  const found=await Promise.any(candidates.map(ip=>
-    fetch(`http://${ip}:65400/api/Receipt`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(['S^Test^1^1000^buc^5^0']),signal:AbortSignal.timeout(1500)})
-    .then(r=>{if(r.ok||r.status===400||r.status===500)return ip;throw new Error('no')})
-  )).catch(()=>null)
-  if(found) _datecs_ip=found
-  return found
+  // Scan all 192.168.0.1-254 in parallel batches of 30
+  const all=Array.from({length:254},(_,i)=>`192.168.0.${i+1}`)
+  for(let i=0;i<all.length;i+=30){
+    const batch=all.slice(i,i+30)
+    const results=await Promise.all(batch.map(ip=>probeDatecs(ip)))
+    const found=results.find(Boolean)
+    if(found){_datecs_ip=found;return found}
+  }
+  return null
 }
 async function sendFiscalReceipt(items, total, method){
   try{
