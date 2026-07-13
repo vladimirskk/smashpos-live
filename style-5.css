@@ -801,7 +801,7 @@ body.admin-mode .pc-zoom { display: flex !important; }
   .product-rail{ gap:0 !important; padding-inline:0 !important; scroll-padding-inline:0 !important; }
   .product-card{ display:flex !important; flex-direction:column !important; gap:8px !important; min-height:0 !important; padding:0 !important; flex:0 0 100% !important; width:100% !important; }
   .pc-media{ aspect-ratio:auto; height:clamp(200px,32svh,280px); width:100%; max-width:none; margin:0;
-    overflow:visible; background:transparent; -webkit-mask-image:none; mask-image:none; }
+    overflow:hidden; background:transparent; -webkit-mask-image:none; mask-image:none; }
   .pc-media image-slot{ width:100%; height:100%; }
   .pc-price-float{ display:none; }              /* prețul e deja pe buton */
   .pc-zoom{ opacity:1; bottom:-2px; padding:4px; }   /* mereu vizibil (fără hover) */
@@ -820,7 +820,7 @@ body.admin-mode .pc-zoom { display: flex !important; }
   .qty button{ width:42px; height:42px; }
   .btn-add{ font-size:.82rem; padding:16px 14px; white-space:nowrap; }
 
-  .pc-prod-img{ transform:scale(1.35) translateY(-20%) !important; object-fit:contain;
+  .pc-prod-img{ transform:scale(1.12) !important; object-fit:contain;
     transform-origin:center center; transition:none !important; }
   .pc-media image-slot{ transform:scale(1) !important; transition:none !important; }
   /* fără animație sacadată la swipe */
