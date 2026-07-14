@@ -745,6 +745,15 @@
   selectCat(activeCat, false);
   renderCart();
 
+  // smooth scroll doar pentru linkurile de ancoră (click), nu global —
+  // scroll-behavior:smooth pe <html> făcea scroll-ul cu degetul săcadat pe Android.
+  $$('a[href^="#"]:not([href="#"])').forEach(a=>{
+    a.addEventListener('click', e=>{
+      const t = document.querySelector(a.getAttribute('href'));
+      if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+    });
+  });
+
   // expune pentru harta de livrare (map.js)
   window.VLADIMIR.api = { toast, reloadMenu };
 })();
