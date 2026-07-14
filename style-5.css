@@ -65,6 +65,7 @@ body{
 /* ---- Fundal global: pattern logo gri, neutru (fără tentă albastră) ---- */
 .bg-field{
   position:fixed; inset:0; z-index:-2; pointer-events:none;
+  transform:translateZ(0); will-change:transform; contain:strict;
   background:
     radial-gradient(900px 700px at 12% -8%, rgba(120,128,150,.10), transparent 60%),
     radial-gradient(1100px 800px at 110% 8%, rgba(120,128,150,.10), transparent 55%),
@@ -89,7 +90,7 @@ body{
 }
 /* boabe fine de glow care plutesc — gri neutru */
 .orb{ position:fixed; z-index:-1; border-radius:50%; filter:blur(60px); pointer-events:none; opacity:.4;
-  will-change:transform; transform:translateZ(0); backface-visibility:hidden; }
+  will-change:transform; transform:translateZ(0); backface-visibility:hidden; contain:strict; }
 .orb.b1{ width:420px;height:420px; background:radial-gradient(circle,#aeb4c2,transparent 70%); top:-120px; right:-60px; animation:float1 18s ease-in-out infinite; }
 .orb.b2{ width:360px;height:360px; background:radial-gradient(circle,#b8bdca,transparent 70%); bottom:8%; left:-120px; opacity:.3; animation:float2 22s ease-in-out infinite; }
 @keyframes float1{ 50%{ transform:translate(-40px,40px) scale(1.1) } }
@@ -779,8 +780,10 @@ body.admin-mode .pc-zoom { display: flex !important; }
 }
 @media (max-width:720px){
   .glass, .btn.ghost, .hero-playhint .play, .hero-upload-btn, .pc-note input, .qty, .pc-zoom, .pc-price-float,
-  .sc-track, .marquee, .hero-text.t-badge, .drawer, .sheet, .scrim, .sheet-scrim{
+  .sc-track, .marquee, .hero-text.t-badge, .drawer, .sheet, .scrim, .sheet-scrim, .cart-fab, .rail-arrows button, .sm-box, .ob-btn{
     backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+  /* orb-urile decorative sunt scumpe pe GPU-urile Android (blur fix + animație continuă) — le oprim pe mobil */
+  .orb{ animation:none !important; opacity:.22; }
   .nav-links{ display:none; }
   .nav-brand b{ display:none; }
   .nav-burger{ display:grid; }
