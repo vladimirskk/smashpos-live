@@ -246,7 +246,7 @@
       card.innerHTML = `
         <div class="pc-media">
           ${p.img
-            ? `<img src="${p.img}" class="pc-prod-img" alt="${p.name}" style="transform:scale(${zoom}) translateY(${offsetY}%)">`
+            ? `<img src="${p.img}" class="pc-prod-img" alt="${p.name}" loading="${idx===0?'eager':'lazy'}" decoding="async" style="transform:scale(${zoom}) translateY(${offsetY}%)">`
             : `<image-slot id="prod-${p.id}" shape="rect" fit="contain" placeholder="Trage poza burgerului" style="transform:scale(${zoom}) translateY(${offsetY}%)"></image-slot>`
           }
           <div class="pc-price-float"><span class="num">${p.price}</span><span class="cur">lei</span></div>
