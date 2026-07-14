@@ -367,11 +367,11 @@ body.editing .add-text-row{ display:flex; }
 .pc-media{ position:relative; aspect-ratio:1/1; display:grid; place-items:center; touch-action:pan-x pan-y; overflow:hidden; }
 .pc-media image-slot{ position:relative; z-index:1; width:100%; height:100%; display:block;
   transform-origin:center center;
-  filter:drop-shadow(0 40px 50px rgba(13,16,40,.22)); transition:transform .35s var(--ease); }
+  filter:drop-shadow(0 20px 26px rgba(13,16,40,.18)); transition:transform .35s var(--ease); }
 /* poză din POS (URL din Supabase Storage) */
 .pc-prod-img{ position:relative; z-index:1; width:100%; height:100%; display:block;
   object-fit:contain; transform-origin:center center;
-  filter:drop-shadow(0 40px 50px rgba(13,16,40,.22)); transition:transform .35s var(--ease); }
+  filter:drop-shadow(0 20px 26px rgba(13,16,40,.18)); transition:transform .35s var(--ease); }
 /* zona de poză produs: fără pătrat/fundal/chenar — doar burgerul plutește.
    Indiciul „trage poza" apare doar la hover; altfel nu se vede nimic.
    touch-action auto pe imagine = swipe-ul funcționează chiar dacă tragi pe burger. */
@@ -778,6 +778,9 @@ body.admin-mode .pc-zoom { display: flex !important; }
   .map-grid{ gap:18px; }
 }
 @media (max-width:720px){
+  .glass, .btn.ghost, .hero-playhint .play, .hero-upload-btn, .pc-note input, .qty, .pc-zoom, .pc-price-float,
+  .sc-track, .marquee, .hero-text.t-badge, .drawer, .sheet, .scrim, .sheet-scrim{
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
   .nav-links{ display:none; }
   .nav-brand b{ display:none; }
   .nav-burger{ display:grid; }
