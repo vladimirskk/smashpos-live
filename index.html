@@ -66,13 +66,14 @@ function playDing(){
     _vsAudioCtx=_vsAudioCtx||new (window.AudioContext||window.webkitAudioContext)()
     const ctx=_vsAudioCtx
     if(ctx.state==='suspended') ctx.resume()
-    ;[0,0.20].forEach((t,i)=>{
+    // alarmă insistentă: 3 bipuri ascuțite, mai puternice decât ding-ul vechi
+    ;[0,0.16,0.32].forEach((t,i)=>{
       const o=ctx.createOscillator(),g=ctx.createGain()
-      o.type='sine';o.frequency.value=i?1318.5:880
+      o.type='square';o.frequency.value=i%2?1568:1108
       o.connect(g);g.connect(ctx.destination)
       const st=ctx.currentTime+t
-      g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(0.32,st+0.02);g.gain.exponentialRampToValueAtTime(0.0008,st+0.38)
-      o.start(st);o.stop(st+0.42)
+      g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(0.5,st+0.015);g.gain.exponentialRampToValueAtTime(0.0008,st+0.15)
+      o.start(st);o.stop(st+0.16)
     })
   }catch(e){}
 }
@@ -675,6 +676,12 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     }catch(e){}
     return ()=>{ if(chan){try{sb.removeChannel(chan)}catch(e){}} }
   },[])
+  // repetă alarma la fiecare 5s cât timp există comenzi online neconfirmate
+  useEffect(()=>{
+    if(onlineOrders.length===0) return
+    const iv=setInterval(()=>playDing(),5000)
+    return ()=>clearInterval(iv)
+  },[onlineOrders.length])
   const buildOnlineItems=o=>(o.items||[]).map(it=>{
     const prod=products.find(p=>String(p.id)===String(it.id))
     return {...(prod||{}),id:it.id,name:it.name,price:Number(it.price)||0,qty:it.qty,note:it.note||''}
