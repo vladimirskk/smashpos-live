@@ -407,7 +407,7 @@ function LivrareModal({onClose,onConfirm,customers}){
   </div>
 }
 
-function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder}){
+function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder,onCancel}){
   const [addingTo,setAddingTo]=useState(null)
   const [extraCat,setExtraCat]=useState(null)
   const [extras,setExtras]=useState([])
@@ -443,7 +443,10 @@ function BucatarieView({kitchenOrders,onPay,onClose,products,cats,onAddToOrder})
                     {o.livrare.notes&&<div style={{fontSize:10,color:'rgba(255,255,255,0.8)',fontStyle:'italic'}}>{o.livrare.notes}</div>}
                   </div>}
                 </div>
-                <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total)}</div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
+                  <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total)}</div>
+                  <button onClick={()=>{if(confirm(`Anulezi comanda #${o.num}?`))onCancel(o.id)}} title="Anuleaza comanda" style={{width:26,height:26,borderRadius:'50%',border:'none',background:'#fff',color:'#c0392b',fontWeight:900,fontSize:15,lineHeight:'26px',textAlign:'center',cursor:'pointer',padding:0}}>×</button>
+                </div>
               </div>
             </div>
             <div style={{padding:'10px 14px'}}>
@@ -757,9 +760,18 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const isMenu=activeCat==='__menus__'
   const isTot=activeCat==='__toate__'
   const filtered=isMenu?[]:isTot?products.filter(p=>p.available):products.filter(p=>p.cat===activeCat&&p.available)
-  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)
+  // Ambalaj: 1 RON per produs din Burgeri/Cartofi + 1 RON punga per comanda
+  const packQty=cart.filter(i=>i.cat==='burgeri'||i.cat==='cartofi').reduce((s,i)=>s+i.qty,0)
+  const packagingFee=packQty*1
+  const bagFee=packQty>0?1:0
+  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+packagingFee+bagFee
   const vat=Math.round(subtotal*VAT*100)/100
   const total=subtotal+vat
+  const withPackaging=items=>{
+    const q=items.filter(i=>i.cat==='burgeri'||i.cat==='cartofi').reduce((s,i)=>s+i.qty,0)
+    if(q===0)return items
+    return [...items,{id:'__ambalaj',name:'Ambalaj',price:1,qty:q,cat:'__fee'},{id:'__punga',name:'Punga',price:1,qty:1,cat:'__fee'}]
+  }
   const cartCount=cart.reduce((s,i)=>s+i.qty,0)
   const rawAdd=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,qty:1}]})
   const updQty=(id,q)=>setCart(p=>q<1?p.filter(i=>i.id!==id):p.map(i=>i.id===id?{...i,qty:q}:i))
@@ -784,8 +796,9 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const triggerWithUpsell=action=>{if(cart.length===0)return;setPendingAction(action);setShowUpsell(true)}
   const executeAction=(action,upsellItems=[])=>{
     setShowUpsell(false)
-    const finalCart=[...cart]
+    let finalCart=[...cart]
     upsellItems.forEach(p=>{const ex=finalCart.find(i=>i.id===p.id);if(ex)ex.qty+=1;else finalCart.push({...p,qty:1})})
+    finalCart=withPackaging(finalCart)
     if(action==='kitchen'){
       if(orderType===2){setShowLivrare(true);return}
       const dt=new Date(),sub=finalCart.reduce((s,i)=>s+i.price*i.qty,0),v=Math.round(sub*VAT*100)/100
@@ -800,8 +813,9 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   }
   const confirmLivrare=info=>{
     setShowLivrare(false)
-    const dt=new Date(),sub=cart.reduce((s,i)=>s+i.price*i.qty,0),v=Math.round(sub*VAT*100)/100
-    setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:[...cart],subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
+    const ciL=withPackaging([...cart])
+    const dt=new Date(),sub=ciL.reduce((s,i)=>s+i.price*i.qty,0),v=Math.round(sub*VAT*100)/100
+    setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:ciL,subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
     setCart([])
   }
   const payKO=(koId,method)=>{const ko=kitchenOrders.find(o=>o.id===koId);if(ko){doPay(method,ko.livrare??null,ko.items,ko.num);setKitchenOrders(p=>p.filter(o=>o.id!==koId))}}
@@ -879,6 +893,8 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
+          {packQty>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Ambalaj ×{packQty}</span><span>{packagingFee.toFixed(2)} RON</span></div>}
+          {bagFee>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Punga</span><span>{bagFee.toFixed(2)} RON</span></div>}
           <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{total.toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
@@ -901,7 +917,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       const ns={...stock};p.items.forEach(r=>{if(ns[r.ing]){const q=convertQtyToStockUnit(r.qty,r.unit,ns[r.ing].unit);ns[r.ing]={...ns[r.ing],qty:Math.max(0,ns[r.ing].qty-q)}}});setStock(ns);setPierderi(prev=>[p,...prev]);setShowPierderi(false)
     }}/>}
     {showLivrare&&<LivrareModal customers={customers} onClose={()=>setShowLivrare(false)} onConfirm={confirmLivrare}/>}
-    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO}/>}
+    {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={koId=>setKitchenOrders(p=>p.filter(o=>o.id!==koId))}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
     {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
     {showOnline&&<ComenziOnlineModal orders={onlineOrders} onAccept={acceptOnline} onAcceptPaid={acceptOnlinePaid} onReject={rejectOnline} onClose={()=>setShowOnline(false)}/>}
