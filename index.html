@@ -760,15 +760,17 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const isMenu=activeCat==='__menus__'
   const isTot=activeCat==='__toate__'
   const filtered=isMenu?[]:isTot?products.filter(p=>p.available):products.filter(p=>p.cat===activeCat&&p.available)
-  // Ambalaj: 1 RON per produs din Burgeri/Cartofi + 1 RON punga per comanda
-  const packQty=cart.filter(i=>i.cat==='burgeri'||i.cat==='cartofi').reduce((s,i)=>s+i.qty,0)
+  // Ambalaj: 1 RON per produs (toate categoriile in afara de bauturi/sosuri/desert) + 1 RON punga per comanda
+  const NO_PACK_CATS=['bauturi','sosuri','desert']
+  const isPackable=i=>i.cat&&!NO_PACK_CATS.includes(i.cat)&&i.cat!=='__fee'
+  const packQty=cart.filter(isPackable).reduce((s,i)=>s+i.qty,0)
   const packagingFee=packQty*1
   const bagFee=packQty>0?1:0
   const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+packagingFee+bagFee
   const vat=Math.round(subtotal*VAT*100)/100
   const total=subtotal+vat
   const withPackaging=items=>{
-    const q=items.filter(i=>i.cat==='burgeri'||i.cat==='cartofi').reduce((s,i)=>s+i.qty,0)
+    const q=items.filter(isPackable).reduce((s,i)=>s+i.qty,0)
     if(q===0)return items
     return [...items,{id:'__ambalaj',name:'Ambalaj',price:1,qty:q,cat:'__fee'},{id:'__punga',name:'Punga',price:1,qty:1,cat:'__fee'}]
   }
