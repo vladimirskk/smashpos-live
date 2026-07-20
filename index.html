@@ -2149,6 +2149,9 @@ function AppInner(){
   const [screen,setScreen]=useState('login')
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
+  useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
+    setCats(p=>{ let ch=false; const n=p.map(c=>{ if(c.pack===undefined){ ch=true; return {...c,pack:(c.id==='burgeri'||c.id==='cartofi')?1:0} } return c }); return ch?n:p })
+  },[])
   const [products,setProducts]=usePersist('pos_products',INIT_PRODS)
   const [stock,setStock]=usePersist('pos_stock',INIT_STOCK)
   const [employees,setEmployees]=usePersist('pos_employees',INIT_EMP)
