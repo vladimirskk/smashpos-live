@@ -822,7 +822,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     setKitchenOrders(p=>[...p,{id:Date.now(),num:orders.length+50,emp_id:employee.id,emp_name:employee.name,items:ciL,subtotal:sub,vat:v,total:sub+v,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare:info}])
     setCart([])
   }
-  const payKO=(koId,method)=>{const ko=kitchenOrders.find(o=>o.id===koId);if(ko){doPay(method,ko.livrare??null,ko.items,ko.num);setKitchenOrders(p=>p.filter(o=>o.id!==koId))}}
+  const payKO=async(koId,method)=>{const ko=kitchenOrders.find(o=>o.id===koId);if(ko){const order=doPay(method,ko.livrare??null,ko.items,ko.num);setKitchenOrders(p=>p.filter(o=>o.id!==koId));const r=await sendFiscalReceipt(order.items,order.total,order.method);if(!r.ok)alert('⚠ Bonul fiscal NU a fost emis: '+r.err+'\n\nÎl poți reemite din 📋 Comenzi azi.')}}
   const addToKO=(koId,newItems)=>setKitchenOrders(prev=>prev.map(o=>{
     if(o.id!==koId)return o
     const merged=[...o.items.map(i=>({...i}))]
