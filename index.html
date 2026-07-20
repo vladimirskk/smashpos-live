@@ -31,7 +31,7 @@ async function sendFiscalReceipt(items, total, method){
       const unit=(it.unit||'buc').substring(0,8)
       return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
-    const totalBani=Math.round(total*100)
+    const totalBani=lines.reduce((s,l)=>{const parts=l.split('^');return s+Math.round(parseInt(parts[2])*parseFloat(parts[6]))},0)
     lines.push(`P^${method==='cash'?1:2}^${totalBani}`)
     const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -99,11 +99,11 @@ function getWeek(d){const s=new Date(d);s.setHours(0,0,0,0);s.setDate(s.getDate(
 
 // ── Seed ──────────────────────────────────────────────────────────────────────
 const INIT_CATS=[
-  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30',fontSize:12,bold:true},
-  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a',fontSize:12,bold:true},
-  {id:'bauturi',name:'Bauturi',from:'#0040cc',to:'#007aff',fontSize:12,bold:true},
-  {id:'sosuri', name:'Sosuri', from:'#1a7a3c',to:'#30d158',fontSize:12,bold:true},
-  {id:'desert', name:'Deserturi',from:'#8b1a6b',to:'#ff375f',fontSize:12,bold:true},
+  {id:'burgeri',name:'Burgeri',from:'#c0392b',to:'#ff3b30',fontSize:12,bold:true,pack:1},
+  {id:'cartofi',name:'Cartofi',from:'#b35a00',to:'#ff9f0a',fontSize:12,bold:true,pack:1},
+  {id:'bauturi',name:'Bauturi',from:'#0040cc',to:'#007aff',fontSize:12,bold:true,pack:0},
+  {id:'sosuri', name:'Sosuri', from:'#1a7a3c',to:'#30d158',fontSize:12,bold:true,pack:0},
+  {id:'desert', name:'Deserturi',from:'#8b1a6b',to:'#ff375f',fontSize:12,bold:true,pack:0},
 ]
 const INIT_PRODS=[
   {id:1,name:'SmashBurger Classic',price:32,cat:'burgeri',img:null,unit:'buc',available:true,recipe:[{ing:'Carne 180g',qty:1,unit:'buc'},{ing:'Chifla',qty:1,unit:'buc'},{ing:'Salata',qty:20,unit:'g'}]},
@@ -760,19 +760,19 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const isMenu=activeCat==='__menus__'
   const isTot=activeCat==='__toate__'
   const filtered=isMenu?[]:isTot?products.filter(p=>p.available):products.filter(p=>p.cat===activeCat&&p.available)
-  // Ambalaj: 1 RON per produs (toate categoriile in afara de bauturi/sosuri/desert) + 1 RON punga per comanda
-  const NO_PACK_CATS=['bauturi','sosuri','desert']
-  const isPackable=i=>i.cat&&!NO_PACK_CATS.includes(i.cat)&&i.cat!=='__fee'
-  const packQty=cart.filter(isPackable).reduce((s,i)=>s+i.qty,0)
-  const packagingFee=packQty*1
+  // Ambalaj: suma setata per categorie (Admin > Produse > Categorii) x cantitate + 1 RON punga per comanda
+  const packFeeOf=i=>{if(i.cat==='__fee')return 0;const c=cats.find(c=>c.id===i.cat);return c?.pack||0}
+  const packQty=cart.filter(i=>packFeeOf(i)>0).reduce((s,i)=>s+i.qty,0)
+  const packagingFee=cart.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
   const bagFee=packQty>0?1:0
   const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+packagingFee+bagFee
   const vat=Math.round(subtotal*VAT*100)/100
   const total=subtotal+vat
   const withPackaging=items=>{
-    const q=items.filter(isPackable).reduce((s,i)=>s+i.qty,0)
-    if(q===0)return items
-    return [...items,{id:'__ambalaj',name:'Ambalaj',price:1,qty:q,cat:'__fee'},{id:'__punga',name:'Punga',price:1,qty:1,cat:'__fee'}]
+    const fee=items.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
+    const q=items.filter(i=>packFeeOf(i)>0).reduce((s,i)=>s+i.qty,0)
+    if(q===0||fee===0)return items
+    return [...items,{id:'__ambalaj',name:'Ambalaj',price:fee/q,qty:q,cat:'__fee'},{id:'__punga',name:'Punga',price:1,qty:1,cat:'__fee'}]
   }
   const cartCount=cart.reduce((s,i)=>s+i.qty,0)
   const rawAdd=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,qty:1}]})
@@ -1327,6 +1327,10 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
         <div key={cat.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:grad(cat.from,cat.to),flexShrink:0}}/>
           <input value={cat.name} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,name:e.target.value}:c))} style={{flex:1,padding:'6px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}/>
+          <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <input type="number" step="0.5" min="0" value={cat.pack??0} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,pack:+e.target.value}:c))} title="Ambalaj (RON/buc)" style={{width:54,padding:'6px 6px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:12,fontFamily:ff,textAlign:'center'}}/>
+            <span style={{fontSize:10,color:F.textMuted}}>RON amb.</span>
+          </div>
           <ColorDot value={cat.from} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,from:v}:c))}/><ColorDot value={cat.to} onChange={v=>setCats(p=>p.map(c=>c.id===cat.id?{...c,to:v}:c))}/>
           <button onClick={()=>setCats(p=>p.filter(c=>c.id!==cat.id))} style={{background:'#fff2f1',border:'none',color:'#c0392b',borderRadius:6,padding:'5px 9px',cursor:'pointer',fontSize:12,fontFamily:ff}}>-</button>
         </div>
