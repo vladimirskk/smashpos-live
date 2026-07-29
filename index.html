@@ -82,6 +82,17 @@ function usePersist(key,def){
   const set=v=>{setVal(prev=>{const next=typeof v==='function'?v(prev):v;try{localStorage.setItem(key,JSON.stringify(next))}catch{};if(sb)Promise.resolve(sb.from('pos_store').upsert({restaurant_id:RESTAURANT_ID,store_key:key,value:next,updated_at:new Date().toISOString()},{onConflict:'restaurant_id,store_key'})).catch(()=>{});return next})}
   return [val,set]
 }
+// Wake Lock: impiedica tableta sa se blocheze/adoarma cat timp POS-ul e deschis
+function useWakeLock(){
+  useEffect(()=>{
+    let lock=null
+    const req=async()=>{try{if('wakeLock' in navigator){lock=await navigator.wakeLock.request('screen')}}catch(e){}}
+    req()
+    const onVis=()=>{if(document.visibilityState==='visible')req()}
+    document.addEventListener('visibilitychange',onVis)
+    return ()=>{document.removeEventListener('visibilitychange',onVis);if(lock)lock.release().catch(()=>{})}
+  },[])
+}
 function convertQtyToStockUnit(qty,rU,sU){
   const G={g:1,kg:1000},ML={ml:1,l:1000}
   if(['g','kg'].includes(rU)&&['g','kg'].includes(sU)) return qty*G[rU]/G[sU]
@@ -1326,6 +1337,7 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
         <div key={cat.id} style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:grad(cat.from,cat.to),flexShrink:0}}/>
           <input value={cat.name} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,name:e.target.value}:c))} style={{flex:1,padding:'6px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}/>
+          <button onClick={()=>setCats(p=>p.map(c=>c.id===cat.id?{...c,active:c.active===false?true:false}:c))} title="Vizibil pe site" style={{flexShrink:0,padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:ff,fontSize:11,fontWeight:800,background:cat.active===false?'#fff2f1':'#e8fbee',color:cat.active===false?'#c0392b':'#1a7a3c'}}>{cat.active===false?'OFF (ascuns)':'ON (pe site)'}</button>
           <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
             <input type="number" step="0.5" min="0" value={cat.pack??0} onChange={e=>setCats(p=>p.map(c=>c.id===cat.id?{...c,pack:+e.target.value}:c))} title="Ambalaj (RON/buc)" style={{width:54,padding:'6px 6px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:12,fontFamily:ff,textAlign:'center'}}/>
             <span style={{fontSize:10,color:F.textMuted}}>RON amb.</span>
@@ -2144,6 +2156,7 @@ ${rows.map(r=>`<tr${!r.auto?' class="manual"':''}><td>${r.nr}</td><td>${dateRO}<
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 function AppInner(){
   const [screen,setScreen]=useState('login')
+  useWakeLock()
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
   useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
