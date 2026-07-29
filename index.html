@@ -6,7 +6,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes posBell{from{transform:scale(1);box-shadow:0 0 0 0 rgba(192,57,43,0.7)}to{transform:scale(1.07);box-shadow:0 0 0 8px rgba(192,57,43,0)}}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f4ff}@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes posBell{from{transform:scale(1);box-shadow:0 0 0 0 rgba(255,59,48,0.9)}to{transform:scale(1.12);box-shadow:0 0 0 12px rgba(255,59,48,0)}}</style>
 </head><body><div id="root"></div>
 <script type="text/babel" data-presets="react">
 /* @jsxRuntime classic */
@@ -66,14 +66,14 @@ function playDing(){
     _vsAudioCtx=_vsAudioCtx||new (window.AudioContext||window.webkitAudioContext)()
     const ctx=_vsAudioCtx
     if(ctx.state==='suspended') ctx.resume()
-    // alarmă insistentă: 3 bipuri ascuțite, mai puternice decât ding-ul vechi
-    ;[0,0.16,0.32].forEach((t,i)=>{
+    // alarmă puternică și insistentă: 4 bipuri ascuțite
+    ;[0,0.14,0.28,0.42].forEach((t,i)=>{
       const o=ctx.createOscillator(),g=ctx.createGain()
-      o.type='square';o.frequency.value=i%2?1568:1108
+      o.type='square';o.frequency.value=i%2?1760:1244
       o.connect(g);g.connect(ctx.destination)
       const st=ctx.currentTime+t
-      g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(0.5,st+0.015);g.gain.exponentialRampToValueAtTime(0.0008,st+0.15)
-      o.start(st);o.stop(st+0.16)
+      g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(0.9,st+0.012);g.gain.exponentialRampToValueAtTime(0.001,st+0.13)
+      o.start(st);o.stop(st+0.14)
     })
   }catch(e){}
 }
@@ -835,7 +835,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <span style={{fontSize:15,fontWeight:700,color:F.text,flex:1}}>VladimirSmash</span>
       <span style={{fontSize:12,color:F.textMuted}}>{employee.name}</span>
       <button onClick={()=>setShowComenziAzi(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>📋 Comenzi</button>
-      <button onClick={()=>setShowOnline(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:700,display:'flex',alignItems:'center',gap:5,animation:onlineOrders.length?'posBell .7s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length>0&&<span style={{background:'#fff',color:'#c0392b',borderRadius:10,padding:'0 6px',fontSize:11,fontWeight:800}}>{onlineOrders.length}</span>}</button>
+      <button onClick={()=>setShowOnline(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:800,animation:onlineOrders.length?'posBell 0.5s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length?` (${onlineOrders.length})`:''}</button>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Admin</GBtn>
       <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'5px 10px',fontSize:15,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Iesire</GBtn>
