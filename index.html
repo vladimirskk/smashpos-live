@@ -1272,7 +1272,7 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
     try{
       const ext=(file.name.split('.').pop()||'jpg').toLowerCase()
       const path=`prod-${pid}.${ext}`
-      const{error}=await sb.storage.from('product-images').upload(path,file,{upsert:true,contentType:file.type})
+      const{error}=await sb.storage.from('product-images').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'31536000'})
       if(error){alert('Eroare upload: '+error.message);return}
       const{data}=sb.storage.from('product-images').getPublicUrl(path)
       updProd(pid,'img',data.publicUrl+'?t='+Date.now())
@@ -1891,7 +1891,7 @@ function SitePozeTab(){
     try{
       const jpeg=await toJpeg(file)
       const imgPath=storagePath+'.jpg'
-      const{error}=await sb.storage.from(BUCKET).upload(imgPath,jpeg,{upsert:true,contentType:'image/jpeg'})
+      const{error}=await sb.storage.from(BUCKET).upload(imgPath,jpeg,{upsert:true,contentType:'image/jpeg',cacheControl:'31536000'})
       if(error) throw new Error(error.message)
       const{data}=sb.storage.from(BUCKET).getPublicUrl(imgPath)
       const url=data.publicUrl+'?t='+Date.now()
