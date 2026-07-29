@@ -760,21 +760,19 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const isMenu=activeCat==='__menus__'
   const isTot=activeCat==='__toate__'
   const filtered=isMenu?[]:isTot?products.filter(p=>p.available):products.filter(p=>p.cat===activeCat&&p.available)
-  // Ambalaj: suma setata per categorie (Admin > Produse > Categorii) x cantitate + 1 RON punga per comanda
-  const packFeeOf=i=>{if(i.cat==='__fee')return 0;const c=cats.find(c=>c.id===i.cat);return c?.pack||0}
-  const packQty=cart.filter(i=>packFeeOf(i)>0).reduce((s,i)=>s+i.qty,0)
-  const packagingFee=cart.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
-  const bagFee=packQty>0?1:0
-  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+packagingFee+bagFee
+  // Doar Punga: 2 RON per comanda (fara ambalaj per produs)
+  const packQty=cart.reduce((s,i)=>s+i.qty,0)
+  const packagingFee=0
+  const bagFee=packQty>0?2:0
+  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+bagFee
   const vat=Math.round(subtotal*VAT*100)/100
   const total=subtotal+vat
   const withPackaging=items=>{
-    const fee=items.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
-    const q=items.filter(i=>packFeeOf(i)>0).reduce((s,i)=>s+i.qty,0)
-    if(q===0||fee===0)return items
+    const q=items.reduce((s,i)=>s+i.qty,0)
+    if(q===0)return items
     // qty=1 pe linia de Ambalaj (nu q) ca sa evitam impartiri cu rest zecimal (fee/q) care produc erori
     // de rotunjire pe casa de marcat (ERR117 - suma bon vs suma incasata). Denumirea arata cantitatea reala.
-    return [...items,{id:'__ambalaj',name:`Ambalaj ×${q}`,price:Math.round(fee*100)/100,qty:1,cat:'__fee'},{id:'__punga',name:'Punga',price:1,qty:1,cat:'__fee'}]
+    return [...items,{id:'__punga',name:'Punga',price:2,qty:1,cat:'__fee'}]
   }
   const cartCount=cart.reduce((s,i)=>s+i.qty,0)
   const rawAdd=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,qty:1}]})
@@ -897,7 +895,6 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
           )})}
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
-          {packQty>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Ambalaj ×{packQty}</span><span>{packagingFee.toFixed(2)} RON</span></div>}
           {bagFee>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Punga</span><span>{bagFee.toFixed(2)} RON</span></div>}
           <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{total.toFixed(2)} RON</span></div>
         </div>}
