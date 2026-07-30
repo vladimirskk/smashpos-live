@@ -618,6 +618,7 @@ function ComenziOnlineModal({orders,onAccept,onAcceptPaid,onReject,onClose}){
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                     {[10,15,20,30,45,60].map(m=><button key={m} onClick={()=>setEta(p=>({...p,[o.id]:m}))} style={{padding:'6px 12px',borderRadius:999,border:'none',cursor:'pointer',fontFamily:ff,fontSize:12,fontWeight:700,background:getEta(o.id)===m?F.primary:'#f0f4ff',color:getEta(o.id)===m?'#fff':F.primary}}>{m} min</button>)}
                   </div>
+                </div>
                 <div style={{padding:'10px 14px 4px',display:'flex',gap:8}}>
                   <button onClick={()=>onReject(o)} style={{flex:1,padding:'11px',borderRadius:10,border:`1.5px solid #ffd0cc`,background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>Refuză</button>
                   <GBtn from='#0017C0' to='#0066ff' onClick={()=>onAccept(o,getEta(o.id))} style={{flex:2,padding:'11px',fontSize:14}}>✓ Acceptă ({getEta(o.id)} min) → Bucătărie</GBtn>
