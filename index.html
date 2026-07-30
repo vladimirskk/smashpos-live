@@ -1022,44 +1022,58 @@ function AdminView({employee,employees,setEmployees,products,setProducts,cats,se
 // ── RAPOARTE ONLINE ──────────────────────────────────────────────────────────
 function RapoarteOnlineTab({orders}){
   const [period,setPeriod]=useState('zi')
-  const online=useMemo(()=>orders.filter(o=>o.online),[orders])
+  const [rows,setRows]=useState([])
+  const [search,setSearch]=useState('')
+  const [loading,setLoading]=useState(false)
+  useEffect(()=>{
+    if(!sb) return
+    setLoading(true)
+    Promise.resolve(sb.from('online_orders').select('*').eq('restaurant_id',RESTAURANT_ID).order('created_at',{ascending:false}).limit(1000))
+      .then(({data})=>{setRows(data||[]);setLoading(false)}).catch(()=>setLoading(false))
+  },[])
   const now=new Date()
-  const inPeriod=o=>{
-    const d=new Date(o.ts)
+  const inPeriod=r=>{
+    const d=new Date(r.created_at)
     if(period==='zi')return d.toDateString()===now.toDateString()
     if(period==='saptamana')return getWeek(d)===getWeek(now)
     if(period==='luna')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()
     return true
   }
-  const filtered=online.filter(inPeriod)
-  const total=filtered.reduce((s,o)=>s+o.total,0)
+  const filtered=rows.filter(inPeriod).filter(r=>!search||String(r.customer_phone||'').includes(search)||String(r.customer_name||'').toLowerCase().includes(search.toLowerCase())||String(r.code||'').includes(search))
+  const total=filtered.reduce((s,o)=>s+(Number(o.total)||0),0)
   const avg=filtered.length?total/filtered.length:0
-  const byMethod=['cash','card'].map(m=>({m,total:filtered.filter(o=>o.method===m).reduce((s,o)=>s+o.total,0),n:filtered.filter(o=>o.method===m).length}))
+  const byMethod=['cash','card'].map(m=>({m,total:filtered.filter(o=>o.payment===m).reduce((s,o)=>s+(Number(o.total)||0),0),n:filtered.filter(o=>o.payment===m).length}))
   return <div style={{display:'flex',flexDirection:'column',gap:14}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      <div style={{fontSize:17,fontWeight:700,color:F.text}}>Rapoarte Online (comenzi de pe site)</div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+      <div style={{fontSize:17,fontWeight:700,color:F.text}}>Rapoarte Online (istoric complet comenzi site)</div>
       <div style={{display:'flex',gap:6}}>
         {[['zi','Azi'],['saptamana','Săpt.'],['luna','Lună'],['tot','Tot']].map(([k,l])=><button key={k} onClick={()=>setPeriod(k)} style={{padding:'6px 12px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:ff,fontSize:12,fontWeight:700,background:period===k?F.primary:'#f0f4ff',color:period===k?'#fff':F.primary}}>{l}</button>)}
       </div>
     </div>
+    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Caută după telefon, nume sau cod comandă…" style={{padding:'10px 14px',borderRadius:10,border:`1px solid ${F.border}`,fontSize:13,fontFamily:ff}}/>
     <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
       <StatCard label="Comenzi online" value={filtered.length} from='#0017C0' to='#0066ff'/>
-      <StatCard label="Total vânzări" value={fmt(total)} from='#1a7a3c' to='#30d158'/>
+      <StatCard label="Total valoare" value={fmt(total)} from='#1a7a3c' to='#30d158'/>
       <StatCard label="Valoare medie" value={fmt(avg)} from='#8b1a6b' to='#ff375f'/>
     </div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
       {byMethod.map(b=><StatCard key={b.m} label={b.m==='cash'?'Cash (online)':'Card (online)'} value={`${fmt(b.total)} · ${b.n} com.`} from='#0040cc' to='#007aff'/>)}
     </div>
-    <Card>{filtered.length===0?<div style={{padding:24,textAlign:'center',color:F.textMuted}}>Nicio comandă online în această perioadă.</div>:filtered.sort((a,b)=>b.ts-a.ts).map(o=>(
-      <div key={o.id} style={{padding:'10px 14px',borderBottom:`1px solid ${F.border}`}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
-          <span style={{fontSize:13,fontWeight:600,color:F.text}}>#{o.num} — {o.date} {o.time}</span>
-          <span style={{fontSize:11,padding:'2px 9px',borderRadius:999,background:o.method==='cash'?'#e3fff3':'#e8eeff',color:o.method==='cash'?'#1a7a3c':F.primary,fontWeight:700}}>{(o.method||'').toUpperCase()}</span>
-          <span style={{fontWeight:700,color:F.primary}}>{fmt(o.total)}</span>
+    <Card>{loading?<div style={{padding:24,textAlign:'center',color:F.textMuted}}>Se încarcă…</div>:filtered.length===0?<div style={{padding:24,textAlign:'center',color:F.textMuted}}>Nicio comandă online în această perioadă.</div>:filtered.map(o=>{
+      const d=new Date(o.created_at)
+      const stColor=o.status==='accepted'?{bg:'#e3fff3',c:'#1a7a3c'}:o.status==='rejected'?{bg:'#fff2f1',c:'#c0392b'}:{bg:'#fff8e5',c:'#b35a00'}
+      return <div key={o.id} style={{padding:'11px 14px',borderBottom:`1px solid ${F.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <span style={{fontSize:13,fontWeight:700,color:F.text}}>#{o.code||o.id} — {d.toLocaleDateString('ro-RO')} {d.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}</span>
+          <span style={{fontSize:11,padding:'2px 9px',borderRadius:999,background:stColor.bg,color:stColor.c,fontWeight:700}}>{(o.status||'pending').toUpperCase()}</span>
+          <span style={{fontSize:11,padding:'2px 9px',borderRadius:999,background:'#f0f4ff',color:F.primary,fontWeight:700}}>{(o.payment||'').toUpperCase()}</span>
+          <span style={{fontWeight:800,color:F.primary}}>{fmt(o.total)}</span>
         </div>
-        <div style={{fontSize:11,color:F.textMuted,marginTop:3}}>{o.items.map(it=>`${it.name}×${it.qty}`).join(', ')}</div>
+        <div style={{fontSize:12,color:F.textSec,marginTop:4,fontWeight:600}}>{o.customer_name||'—'} · 📞 {o.customer_phone||'—'}{o.fulfillment==='delivery'&&o.address?` · 📍 ${o.address}`:o.fulfillment?' · Ridicare':''}</div>
+        <div style={{fontSize:11,color:F.textMuted,marginTop:3}}>{(o.items||[]).map(it=>`${it.name}×${it.qty}${it.note?` (${it.note})`:''}`).join(', ')}</div>
+        {o.eta_minutes&&<div style={{fontSize:11,color:F.textMuted,marginTop:2}}>⏱ Timp estimat: {o.eta_minutes} min</div>}
       </div>
-    ))}</Card>
+    })}</Card>
   </div>
 }
 
