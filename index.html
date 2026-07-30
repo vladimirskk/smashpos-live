@@ -1876,22 +1876,17 @@ function SitePozeTab(){
     fetch(SB_PUB+'/site/about-url.txt'+nc).then(r=>r.ok?r.text():null).then(u=>{if(u&&u.startsWith('http'))setAboutUrl(u.trim())}).catch(()=>{})
   },[])
 
-  // Transcodează la JPEG pentru URL fix (fără extensie variabilă)
-  async function toJpeg(file){
-    const img=await createImageBitmap(file)
-    const c=document.createElement('canvas')
-    c.width=img.width; c.height=img.height
-    c.getContext('2d').drawImage(img,0,0)
-    return await new Promise(res=>c.toBlob(res,'image/jpeg',0.85))
-  }
+  // Păstrează fișierul original (format/extensie exact cum a fost încărcat)
+  async function toJpeg(file){ return file }
 
   async function upload(file,storagePath,setUrl,setStatus,setLoading){
     if(!file||!sb) return
     setLoading(true); setStatus('Se procesează…')
     try{
       const jpeg=await toJpeg(file)
-      const imgPath=storagePath+'.jpg'
-      const{error}=await sb.storage.from(BUCKET).upload(imgPath,jpeg,{upsert:true,contentType:'image/jpeg',cacheControl:'31536000'})
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase()
+      const imgPath=storagePath+'.'+ext
+      const{error}=await sb.storage.from(BUCKET).upload(imgPath,jpeg,{upsert:true,contentType:file.type||'image/jpeg',cacheControl:'31536000'})
       if(error) throw new Error(error.message)
       const{data}=sb.storage.from(BUCKET).getPublicUrl(imgPath)
       const url=data.publicUrl+'?t='+Date.now()
@@ -1913,7 +1908,7 @@ function SitePozeTab(){
 
   async function remove(storagePath,setUrl,setStatus){
     if(!sb||!window.confirm('Ești sigur că vrei să ștergi poza?')) return
-    await sb.storage.from(BUCKET).remove([storagePath+'.jpg',storagePath+'-url.txt']).catch(()=>{})
+    await sb.storage.from(BUCKET).remove(['jpg','jpeg','png','webp','gif'].map(e=>storagePath+'.'+e).concat([storagePath+'-url.txt'])).catch(()=>{})
     setUrl(null); setStatus('Poză ștearsă.')
     setTimeout(()=>setStatus(''),2000)
   }
