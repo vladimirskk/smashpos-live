@@ -716,7 +716,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     const livrare={name:(o.customer_name||'Client site')+(isDel?'':' (RIDICARE)'),phone:o.customer_phone||'',address:isDel?(o.address||''):'',notes:'Comandă ONLINE'+(o.payment?(' · plată: '+o.payment):'')}
     setKitchenOrders(p=>[...p,{id:Date.now(),num:'S'+(o.code||''),emp_id:employee.id,emp_name:'Online',items,subtotal:sub,vat,total:sub+vat,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true,etaMin}])
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
-    if(sb){try{await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id)}catch(e){}}
+    if(sb){try{const{error}=await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id);if(error)alert('⚠ Comanda a fost trimisă în bucătărie, dar statusul NU s-a salvat în baza de date: '+error.message+'\n\nVerifică politica RLS de UPDATE pe tabelul online_orders.')}catch(e){alert('⚠ Eroare conexiune la salvarea statusului: '+e.message)}}
     setShowKitchen(true);setShowOnline(false)
   }
   // Confirmă comanda online direct ca vânzare încasată — trece direct în pos_orders (statistici/rapoarte),
@@ -731,11 +731,11 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     setOrders(p=>[order,...p])
     if(livrare.phone) setCustomers(prev=>{const ex=prev.find(c=>c.phone===livrare.phone);if(ex)return prev.map(c=>c.phone===livrare.phone?{...c,orderCount:(c.orderCount||0)+1}:c);return[...prev,{id:Date.now(),phone:livrare.phone,name:livrare.name,address:livrare.address||'',orderCount:1}]})
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
-    if(sb){try{await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id)}catch(e){}}
+    if(sb){try{const{error}=await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id);if(error)alert('⚠ Comanda a fost încasată, dar statusul NU s-a salvat în baza de date: '+error.message+'\n\nVerifică politica RLS de UPDATE pe tabelul online_orders.')}catch(e){alert('⚠ Eroare conexiune la salvarea statusului: '+e.message)}}
   }
   const rejectOnline=async(o)=>{
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
-    if(sb){try{await sb.from('online_orders').update({status:'rejected'}).eq('id',o.id)}catch(e){}}
+    if(sb){try{const{error}=await sb.from('online_orders').update({status:'rejected'}).eq('id',o.id);if(error)alert('⚠ Refuzul NU s-a salvat în baza de date: '+error.message)}catch(e){}}
   }
   const [haccpData,setHaccpData]=usePersist('pos_haccp_data',{})
   useEffect(()=>{
