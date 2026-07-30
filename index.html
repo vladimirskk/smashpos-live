@@ -583,6 +583,8 @@ function ComenziAziRow({order:o}){
 
 // ── ComenziOnlineModal — comenzi primite de pe site ───────────────────────────
 function ComenziOnlineModal({orders,onAccept,onAcceptPaid,onReject,onClose}){
+  const [eta,setEta]=useState({})
+  const getEta=id=>eta[id]??15
   return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:130,padding:16}}>
     <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'88vh',display:'flex',flexDirection:'column',fontFamily:ff,boxShadow:'0 8px 40px rgba(0,23,192,0.18)'}}>
       <div style={{padding:'18px 20px 14px',borderBottom:`1px solid ${F.border}`,display:'flex',alignItems:'center',gap:10}}>
@@ -611,12 +613,17 @@ function ComenziOnlineModal({orders,onAccept,onAcceptPaid,onReject,onClose}){
                   </div>)}
                   <div style={{fontSize:11,color:F.textMuted,marginTop:6}}>Plată aleasă pe site: <b style={{color:F.textSec}}>{o.payment}</b></div>
                 </div>
+                <div style={{padding:'2px 14px 8px'}}>
+                  <div style={{fontSize:11,fontWeight:700,color:F.textMuted,marginBottom:5}}>⏱ Timp estimat de pregătire</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {[10,15,20,30,45,60].map(m=><button key={m} onClick={()=>setEta(p=>({...p,[o.id]:m}))} style={{padding:'6px 12px',borderRadius:999,border:'none',cursor:'pointer',fontFamily:ff,fontSize:12,fontWeight:700,background:getEta(o.id)===m?F.primary:'#f0f4ff',color:getEta(o.id)===m?'#fff':F.primary}}>{m} min</button>)}
+                  </div>
                 <div style={{padding:'10px 14px 4px',display:'flex',gap:8}}>
                   <button onClick={()=>onReject(o)} style={{flex:1,padding:'11px',borderRadius:10,border:`1.5px solid #ffd0cc`,background:'#fff2f1',color:'#c0392b',fontFamily:ff,fontSize:13,fontWeight:700,cursor:'pointer'}}>Refuză</button>
-                  <GBtn from='#0017C0' to='#0066ff' onClick={()=>onAccept(o)} style={{flex:2,padding:'11px',fontSize:14}}>✓ Acceptă → Bucătărie</GBtn>
+                  <GBtn from='#0017C0' to='#0066ff' onClick={()=>onAccept(o,getEta(o.id))} style={{flex:2,padding:'11px',fontSize:14}}>✓ Acceptă ({getEta(o.id)} min) → Bucătărie</GBtn>
                 </div>
                 <div style={{padding:'0 14px 12px'}}>
-                  <GBtn from='#1a7a3c' to='#30d158' onClick={()=>onAcceptPaid(o)} style={{width:'100%',padding:'11px',fontSize:13}}>💳 Confirmă & Încasează (trece direct în vânzări)</GBtn>
+                  <GBtn from='#1a7a3c' to='#30d158' onClick={()=>onAcceptPaid(o,getEta(o.id))} style={{width:'100%',padding:'11px',fontSize:13}}>💳 Confirmă & Încasează ({getEta(o.id)} min)</GBtn>
                 </div>
               </div>
             })
@@ -700,30 +707,30 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     const prod=products.find(p=>String(p.id)===String(it.id))
     return {...(prod||{}),id:it.id,name:it.name,price:Number(it.price)||0,qty:it.qty,note:it.note||''}
   })
-  const acceptOnline=async(o)=>{
+  const acceptOnline=async(o,etaMin)=>{
     // reconstruiește produsele din POS (pt. rețetă → scădere stoc la plată)
     const items=buildOnlineItems(o)
     const sub=items.reduce((s,i)=>s+i.price*i.qty,0),vat=Math.round(sub*VAT*100)/100,dt=new Date()
     const isDel=o.fulfillment==='delivery'
     const livrare={name:(o.customer_name||'Client site')+(isDel?'':' (RIDICARE)'),phone:o.customer_phone||'',address:isDel?(o.address||''):'',notes:'Comandă ONLINE'+(o.payment?(' · plată: '+o.payment):'')}
-    setKitchenOrders(p=>[...p,{id:Date.now(),num:'S'+(o.code||''),emp_id:employee.id,emp_name:'Online',items,subtotal:sub,vat,total:sub+vat,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true}])
+    setKitchenOrders(p=>[...p,{id:Date.now(),num:'S'+(o.code||''),emp_id:employee.id,emp_name:'Online',items,subtotal:sub,vat,total:sub+vat,time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true,etaMin}])
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
-    if(sb){try{await sb.from('online_orders').update({status:'accepted'}).eq('id',o.id)}catch(e){}}
+    if(sb){try{await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id)}catch(e){}}
     setShowKitchen(true);setShowOnline(false)
   }
   // Confirmă comanda online direct ca vânzare încasată — trece direct în pos_orders (statistici/rapoarte),
   // fără pasul de bucătărie. Folosit pentru comenzi deja plătite pe site sau pe care vrei să le închei imediat.
-  const acceptOnlinePaid=async(o)=>{
+  const acceptOnlinePaid=async(o,etaMin)=>{
     const items=buildOnlineItems(o)
     deductStock(items)
     const sub=items.reduce((s,i)=>s+i.price*i.qty,0),vat=Math.round(sub*VAT*100)/100,dt=new Date(),ts=dt.getTime()
     const isDel=o.fulfillment==='delivery'
     const livrare={name:(o.customer_name||'Client site')+(isDel?'':' (RIDICARE)'),phone:o.customer_phone||'',address:isDel?(o.address||''):'',notes:'Comandă ONLINE'+(o.payment?(' · plată: '+o.payment):'')}
-    const order={id:ts,num:'S'+(o.code||orders.length+50),emp_id:employee.id,emp_name:employee.name,method:o.payment||'card',items,subtotal:sub,vat,total:sub+vat,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true}
+    const order={id:ts,num:'S'+(o.code||orders.length+50),emp_id:employee.id,emp_name:employee.name,method:o.payment||'card',items,subtotal:sub,vat,total:sub+vat,status:'paid',ts,date:dt.toLocaleDateString('ro-RO'),week:getWeek(dt),month:dt.getMonth(),year:dt.getFullYear(),time:dt.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}),livrare,online:true,etaMin}
     setOrders(p=>[order,...p])
     if(livrare.phone) setCustomers(prev=>{const ex=prev.find(c=>c.phone===livrare.phone);if(ex)return prev.map(c=>c.phone===livrare.phone?{...c,orderCount:(c.orderCount||0)+1}:c);return[...prev,{id:Date.now(),phone:livrare.phone,name:livrare.name,address:livrare.address||'',orderCount:1}]})
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
-    if(sb){try{await sb.from('online_orders').update({status:'accepted'}).eq('id',o.id)}catch(e){}}
+    if(sb){try{await sb.from('online_orders').update({status:'accepted',eta_minutes:etaMin,accepted_at:new Date().toISOString()}).eq('id',o.id)}catch(e){}}
   }
   const rejectOnline=async(o)=>{
     setOnlineOrders(prev=>prev.filter(x=>x.id!==o.id))
