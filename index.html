@@ -853,11 +853,11 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <div style={{width:32,height:32,borderRadius:8,background:grad('#0017C0','#0066ff'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800,color:'#fff'}}>V</div>
       <span style={{fontSize:15,fontWeight:700,color:F.text,flex:1}}>VladimirSmash</span>
       <span style={{fontSize:12,color:F.textMuted}}>{employee.name}</span>
-      <button onClick={()=>setShowComenziAzi(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>📋 Comenzi</button>
-      <button onClick={()=>setShowOnline(true)} style={{padding:'5px 11px',fontSize:12,borderRadius:8,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:800,animation:onlineOrders.length?'posBell 0.5s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length?` (${onlineOrders.length})`:''}</button>
-      <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Admin</GBtn>
-      <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'5px 10px',fontSize:15,borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
-      <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'5px 12px',fontSize:12,borderRadius:8}}>Iesire</GBtn>
+      <button onClick={()=>setShowComenziAzi(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>Comenzi azi</button>
+      <button onClick={()=>setShowOnline(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:800,animation:onlineOrders.length?'posBell 0.5s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length?` (${onlineOrders.length})`:''}</button>
+      <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Admin</GBtn>
+      <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'10px 14px',fontSize:18,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
+      <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Iesire</GBtn>
     </div>
     <div style={{flex:1,display:'flex',overflow:'hidden'}}>
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',position:'relative'}}>
@@ -1047,7 +1047,7 @@ function RapoarteOnlineTab({orders}){
     if(period==='luna')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()
     return true
   }
-  const filtered=rows.filter(inPeriod).filter(r=>!search||String(r.customer_phone||'').includes(search)||String(r.customer_name||'').toLowerCase().includes(search.toLowerCase())||String(r.code||'').includes(search))
+  const filtered=rows.filter(r=>r.status==='accepted').filter(inPeriod).filter(r=>!search||String(r.customer_phone||'').includes(search)||String(r.customer_name||'').toLowerCase().includes(search.toLowerCase())||String(r.code||'').includes(search))
   const total=filtered.reduce((s,o)=>s+(Number(o.total)||0),0)
   const avg=filtered.length?total/filtered.length:0
   const byMethod=['cash','card'].map(m=>({m,total:filtered.filter(o=>o.payment===m).reduce((s,o)=>s+(Number(o.total)||0),0),n:filtered.filter(o=>o.payment===m).length}))
