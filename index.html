@@ -685,7 +685,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       chan=sb.channel('pos-online-'+RESTAURANT_ID)
         .on('postgres_changes',{event:'INSERT',schema:'public',table:'online_orders'},payload=>{
           const o=payload.new
-          if(o&&o.restaurant_id===RESTAURANT_ID&&o.status==='pending'){
+          if(o&&o.restaurant_id===RESTAURANT_ID&&o.status==='pending'&&(Date.now()-new Date(o.created_at).getTime())<10*60000){
             setOnlineOrders(prev=>prev.find(x=>x.id===o.id)?prev:[...prev,o])
             playDing()
           }
