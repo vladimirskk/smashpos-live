@@ -605,6 +605,7 @@ function ComenziOnlineModal({orders,onAccept,onAcceptPaid,onReject,onClose}){
                     {isDel&&o.address&&<div style={{fontSize:11,color:'rgba(255,255,255,0.9)',marginTop:1}}>{o.address}</div>}
                   </div>
                   <div style={{fontSize:15,fontWeight:800,color:'#fff'}}>{fmt(o.total)}</div>
+                  <button onClick={()=>onReject(o)} title="Închide" style={{width:30,height:30,borderRadius:'50%',border:'none',background:'#fff',color:'#c0392b',fontWeight:900,fontSize:17,lineHeight:'30px',textAlign:'center',cursor:'pointer',padding:0,marginTop:6}}>×</button>
                 </div>
                 <div style={{padding:'8px 14px'}}>
                   {(o.items||[]).map((it,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:13,padding:'4px 0',borderBottom:`1px solid ${F.border}`}}>
@@ -676,8 +677,10 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     let chan
     const load=async()=>{
       try{
-        const {data}=await sb.from('online_orders').select('*').eq('restaurant_id',RESTAURANT_ID).eq('status','pending').order('created_at',{ascending:true})
+        const {data}=await sb.from('online_orders').select('*').eq('restaurant_id',RESTAURANT_ID).eq('status','pending').gte('created_at',new Date(Date.now()-10*60000).toISOString()).order('created_at',{ascending:true})
         if(data) setOnlineOrders(data)
+        // curata automat comenzile pending mai vechi de 10 min (ramase blocate din teste vechi)
+        Promise.resolve(sb.from('online_orders').update({status:'expired'}).eq('restaurant_id',RESTAURANT_ID).eq('status','pending').lt('created_at',new Date(Date.now()-10*60000).toISOString())).catch(()=>{})
       }catch(e){}
     }
     load()
