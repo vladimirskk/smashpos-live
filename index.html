@@ -93,6 +93,20 @@ function useWakeLock(){
     return ()=>{document.removeEventListener('visibilitychange',onVis);if(lock)lock.release().catch(()=>{})}
   },[])
 }
+// Fullscreen persistent: daca userul a activat fullscreen, il reactiveaza automat daca iese singur
+// (ex. la revenirea din alt tab/gest OS) - iese doar daca userul apasa explicit butonul ⛶
+let _fsWanted=false
+function useStickyFullscreen(){
+  useEffect(()=>{
+    const onChange=()=>{
+      if(_fsWanted&&!document.fullscreenElement){
+        setTimeout(()=>{if(_fsWanted&&!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}},300)
+      }
+    }
+    document.addEventListener('fullscreenchange',onChange)
+    return ()=>document.removeEventListener('fullscreenchange',onChange)
+  },[])
+}
 function convertQtyToStockUnit(qty,rU,sU){
   const G={g:1,kg:1000},ML={ml:1,l:1000}
   if(['g','kg'].includes(rU)&&['g','kg'].includes(sU)) return qty*G[rU]/G[sU]
@@ -859,7 +873,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <button onClick={()=>setShowComenziAzi(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontWeight:700}}>Comenzi azi</button>
       <button onClick={()=>setShowOnline(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:800,animation:onlineOrders.length?'posBell 0.5s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length?` (${onlineOrders.length})`:''}</button>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Admin</GBtn>
-      <button onClick={()=>{if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'10px 14px',fontSize:18,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
+      <button onClick={()=>{_fsWanted=!document.fullscreenElement;if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{_fsWanted=false;document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'10px 14px',fontSize:18,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Iesire</GBtn>
     </div>
     <div style={{flex:1,display:'flex',overflow:'hidden'}}>
@@ -2236,6 +2250,7 @@ ${rows.map(r=>`<tr${!r.auto?' class="manual"':''}><td>${r.nr}</td><td>${dateRO}<
 function AppInner(){
   const [screen,setScreen]=useState('login')
   useWakeLock()
+  useStickyFullscreen()
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
   useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
