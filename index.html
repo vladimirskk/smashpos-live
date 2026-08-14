@@ -2356,7 +2356,31 @@ function AppInner(){
   useStickyFullscreen()
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
-  const [appCats,setAppCats]=usePersist('pos_app_cats',()=>[])
+  const [appCats,setAppCats]=usePersist('pos_app_cats',()=>[
+    {id:'ac_smash',name:'Smash',from:'#c0392b',to:'#ff3b30',products:[
+      {id:'ap1',name:'American Classic - Classic',price:37},
+      {id:'ap2',name:'American Classic - Maxi',price:49},
+      {id:'ap3',name:'American Spicy - Classic',price:43},
+      {id:'ap4',name:'American Spicy - Maxi',price:55},
+      {id:'ap5',name:'Fresh Smash - Classic',price:45},
+      {id:'ap6',name:'Fresh Smash - Maxi',price:57},
+      {id:'ap7',name:'Wow Bacon Smash - Classic',price:47},
+      {id:'ap8',name:'Wow Bacon Smash - Maxi',price:60},
+      {id:'ap9',name:'Chicken - Classic',price:37},
+      {id:'ap10',name:'Chicken - Maxi',price:49},
+      {id:'ap11',name:'Truffle Smash - Classic',price:43},
+      {id:'ap12',name:'Truffle Smash - Maxi',price:55},
+    ]},
+    {id:'ac_legends',name:'Our Legends',from:'#0017C0',to:'#0066ff',products:[
+      {id:'ap13',name:'Boom Royal Chesse',price:48},
+      {id:'ap14',name:'Boom Royal Spicy',price:48},
+    ]},
+    {id:'ac_frys',name:"Fry's",from:'#b35a00',to:'#ff9f0a',products:[
+      {id:'ap15',name:'Cajun',price:16},
+      {id:'ap16',name:'Usturoi si patrunjel',price:21},
+      {id:'ap17',name:'Cheddar & Bacon',price:24},
+    ]},
+  ])
   const [appOrders,setAppOrders]=usePersist('pos_app_orders',()=>[])
   const [showAppSale,setShowAppSale]=useState(false)
   useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
