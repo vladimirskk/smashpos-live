@@ -307,14 +307,22 @@ function UpsellChecklist({cart,products,onConfirm,onSkip}){
 }
 
 // ── ProdCard ──────────────────────────────────────────────────────────────────
-function ProdCard({p,cat,qty,onAdd}){
+// pretul afisat/folosit depinde de canalul activ (local/glovo/bolt/wolt) selectat in POS
+function priceForChannel(p,channel){
+  if(!channel||channel==='local') return p.price
+  const key='price'+channel.charAt(0).toUpperCase()+channel.slice(1)
+  const v=p[key]
+  return (v===undefined||v===null||v==='')?p.price:v
+}
+function ProdCard({p,cat,qty,onAdd,channel}){
   const fs=cat.fontSize??12
   const fw=cat.bold!==false?700:400
+  const price=priceForChannel(p,channel)
   return <div onClick={()=>onAdd(p)} style={{borderRadius:14,overflow:'hidden',cursor:'pointer',border:qty>0?`2.5px solid ${cat.from}`:`1.5px solid ${F.border}`,background:grad(cat.from,cat.to),display:'flex',flexDirection:'column',justifyContent:'flex-end',boxShadow:qty>0?`0 4px 16px ${cat.from}55`:'0 2px 8px rgba(0,0,0,0.15)',position:'relative',minHeight:80}}>
     {qty>0&&<div style={{position:'absolute',top:7,right:7,zIndex:2,background:'rgba(0,0,0,0.35)',color:'#fff',borderRadius:'50%',width:22,height:22,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>{qty}</div>}
     <div style={{padding:'10px 10px 10px',display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:4}}>
       <div style={{fontSize:fs,fontWeight:fw,color:'#fff',lineHeight:1.2,flex:1,marginRight:4,textShadow:'0 1px 3px rgba(0,0,0,0.4)'}}>{p.name}</div>
-      <div style={{fontSize:Math.max(fs,13),fontWeight:800,color:'#fff',whiteSpace:'nowrap',textShadow:'0 1px 3px rgba(0,0,0,0.4)'}}>{p.price} RON</div>
+      <div style={{fontSize:Math.max(fs,13),fontWeight:800,color:'#fff',whiteSpace:'nowrap',textShadow:'0 1px 3px rgba(0,0,0,0.4)'}}>{price} RON</div>
     </div>
   </div>
 }
@@ -652,7 +660,8 @@ function ComenziOnlineModal({orders,onAccept,onAcceptPaid,onReject,onClose}){
 }
 
 // ── POS ───────────────────────────────────────────────────────────────────────
-function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,setProtocols,customers,setCustomers,menus,pierderi,setPierderi,onAdmin,onLogout,btnCfg,setBtnCfg,appCats,showAppSale,setShowAppSale,onAppSaleFinish}){
+function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,setProtocols,customers,setCustomers,menus,pierderi,setPierderi,onAdmin,onLogout,btnCfg,setBtnCfg}){
+  const [channel,setChannel]=usePersist('pos_channel','local')
   const [activeCat,setActiveCat]=useState('__toate__')
   const [cart,setCart]=useState([])
   const [orderType,setOrderType]=useState(0)
@@ -813,7 +822,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     return [...items,{id:'__punga',name:'Punga',price:2,qty:1,cat:'__fee'}]
   }
   const cartCount=cart.reduce((s,i)=>s+i.qty,0)
-  const rawAdd=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,qty:1}]})
+  const rawAdd=p=>setCart(prev=>{const price=priceForChannel(p,channel);const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,price,qty:1}]})
   const updQty=(id,q)=>setCart(p=>q<1?p.filter(i=>i.id!==id):p.map(i=>i.id===id?{...i,qty:q}:i))
   const getQty=id=>cart.find(i=>i.id===id)?.qty??0
   const setBtn=(k,i,v)=>setBtnCfg(p=>({...p,[k]:p[k].map((c,j)=>j===i?v:c)}))
@@ -876,7 +885,11 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <button onClick={()=>setShowOnline(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:onlineOrders.length?grad('#c0392b','#ff3b30'):'#eef1ff',color:onlineOrders.length?'#fff':F.primary,fontFamily:ff,fontWeight:800,animation:onlineOrders.length?'posBell 0.5s ease-in-out infinite alternate':'none'}}>🔔 Online{onlineOrders.length?` (${onlineOrders.length})`:''}</button>
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Admin</GBtn>
       <button onClick={()=>{_fsWanted=!document.fullscreenElement;if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{_fsWanted=false;document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'10px 14px',fontSize:18,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
-      <button onClick={()=>setShowAppSale(true)} style={{padding:'12px 20px',fontSize:16,borderRadius:10,border:'none',cursor:'pointer',background:'#fff3e0',color:'#b35a00',fontFamily:ff,fontWeight:800}}>🛵 Aplicatii</button>
+      <div style={{display:'flex',gap:4,background:'#f0f4ff',borderRadius:10,padding:4}}>
+        {[['local','În locație'],['glovo','Glovo'],['bolt','Bolt'],['wolt','Wolt']].map(([k,l])=>
+          <button key={k} onClick={()=>setChannel(k)} style={{padding:'8px 14px',fontSize:14,borderRadius:8,border:'none',cursor:'pointer',fontFamily:ff,fontWeight:800,background:channel===k?F.primary:'transparent',color:channel===k?'#fff':F.primary}}>{l}</button>
+        )}
+      </div>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Iesire</GBtn>
     </div>
     <div style={{flex:1,display:'flex',overflow:'hidden'}}>
@@ -897,7 +910,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
               <div style={{background:grad('#6e1a8b','#bf5af2'),padding:'10px 12px'}}><div style={{fontSize:12,fontWeight:700,color:'#fff'}}>{m.name}</div><div style={{fontSize:13,fontWeight:800,color:'rgba(255,255,255,0.9)',marginTop:2}}>{m.price} RON</div></div>
               <div style={{padding:'8px 10px',fontSize:10,color:F.textMuted}}>{m.items.map(pi=>{const pr=products.find(p=>p.id===pi.id);return pr?.name}).filter(Boolean).join(', ')}</div>
             </div>
-          ))):filtered.map(p=><ProdCard key={p.id} p={p} cat={getCat(p.cat)} qty={getQty(p.id)} onAdd={rawAdd}/>)}
+          ))):filtered.map(p=><ProdCard key={p.id} p={p} cat={getCat(p.cat)} qty={getQty(p.id)} onAdd={rawAdd} channel={channel}/>)}
         </div>
         <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'10px 12px',background:'rgba(240,244,255,0.95)',backdropFilter:'blur(8px)',borderTop:`1px solid ${F.border}`}}>
           <button onClick={()=>setShowKitchen(true)} style={{width:'100%',height:64,background:grad('#0017C0','#0066ff'),color:'#fff',border:'none',borderRadius:14,fontFamily:ff,fontWeight:800,fontSize:18,cursor:'pointer',boxShadow:'0 6px 24px #0017C099',display:'flex',alignItems:'center',justifyContent:'center',gap:12}}>
@@ -958,7 +971,6 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
     }}/>}
     {showLivrare&&<LivrareModal customers={customers} onClose={()=>setShowLivrare(false)} onConfirm={confirmLivrare}/>}
     {showKitchen&&<BucatarieView kitchenOrders={kitchenOrders} onPay={payKO} onClose={()=>setShowKitchen(false)} products={products} cats={cats} onAddToOrder={addToKO} onCancel={koId=>setKitchenOrders(p=>p.filter(o=>o.id!==koId))}/>}
-    {showAppSale&&<AppSaleModal appCats={appCats} onClose={()=>setShowAppSale(false)} onFinish={o=>{onAppSaleFinish(o);setShowAppSale(false)}}/>}
     {showHaccp&&<HaccpModal slot={haccpSlot} onClose={()=>setShowHaccp(false)}/>}
     {showComenziAzi&&<ComenziAziModal orders={orders} onClose={()=>setShowComenziAzi(false)}/>}
     {showOnline&&<ComenziOnlineModal orders={onlineOrders} onAccept={acceptOnline} onAcceptPaid={acceptOnlinePaid} onReject={rejectOnline} onClose={()=>setShowOnline(false)}/>}
@@ -985,114 +997,14 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   </div>
 }
 
-// ── VÂNZARE PRIN APLICAȚII (Glovo/Bolt/Tazz) ── prețuri separate, fără legătură cu site-ul/stocul ──────────────────────────
-function AppSaleModal({appCats,onClose,onFinish}){
-  const [activeCat,setActiveCat]=useState(appCats[0]?.id||null)
-  const [cart,setCart]=useState([])
-  const [busy,setBusy]=useState(false)
-  const cat=appCats.find(c=>c.id===activeCat)
-  const add=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return [...prev,{...p,qty:1}]})
-  const dec=p=>setCart(prev=>prev.map(i=>i.id===p.id?{...i,qty:i.qty-1}:i).filter(i=>i.qty>0))
-  const total=cart.reduce((s,i)=>s+i.price*i.qty,0)
-  const finish=async(method)=>{
-    if(cart.length===0||busy)return
-    setBusy(true)
-    const r=await sendFiscalReceipt(cart,total,method)
-    setBusy(false)
-    if(!r.ok){alert('⚠ Bonul fiscal NU a fost emis: '+r.err);return}
-    onFinish({id:Date.now(),ts:Date.now(),items:cart,total,method,date:new Date().toLocaleDateString('ro-RO'),time:new Date().toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})})
-    setCart([])
-  }
-  return <Modal onClose={onClose}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div style={{fontSize:18,fontWeight:800,color:F.text}}>🛵 Vânzare prin aplicații (Glovo/Bolt/Tazz)</div>
-      <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'#f5f5f7',fontSize:16,cursor:'pointer'}}>✕</button>
-    </div>
-    {appCats.length===0?<div style={{padding:30,textAlign:'center',color:F.textMuted}}>Nu ai configurat încă produse pentru aplicații. Adaugă din Admin → Prețuri Aplicații.</div>:<>
-    <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:12,paddingBottom:4}}>
-      {appCats.map(c=><button key={c.id} onClick={()=>setActiveCat(c.id)} style={{padding:'8px 14px',borderRadius:999,border:'none',cursor:'pointer',whiteSpace:'nowrap',fontFamily:ff,fontSize:12,fontWeight:700,background:activeCat===c.id?grad(c.from||'#0017C0',c.to||'#0066ff'):'#f0f4ff',color:activeCat===c.id?'#fff':F.primary}}>{c.name}</button>)}
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8,maxHeight:260,overflowY:'auto',marginBottom:14}}>
-      {(cat?.products||[]).map(p=><div key={p.id} onClick={()=>add(p)} style={{padding:'10px 12px',borderRadius:10,border:`1px solid ${F.border}`,cursor:'pointer',background:'#fafbff'}}>
-        <div style={{fontSize:13,fontWeight:700,color:F.text}}>{p.name}</div>
-        <div style={{fontSize:13,fontWeight:800,color:F.primary,marginTop:2}}>{fmt(p.price)}</div>
-      </div>)}
-    </div>
-    <div style={{borderTop:`1px solid ${F.border}`,paddingTop:10}}>
-      {cart.length===0?<div style={{fontSize:12,color:F.textMuted,textAlign:'center',padding:10}}>Adaugă produse apăsând pe ele</div>:cart.map(i=><div key={i.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',fontSize:13}}>
-        <span>{i.name}</span>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <button onClick={()=>dec(i)} style={{width:24,height:24,borderRadius:6,border:'none',background:'#f0f0f0',cursor:'pointer'}}>-</button>
-          <span>{i.qty}</span>
-          <button onClick={()=>add(i)} style={{width:24,height:24,borderRadius:6,border:'none',background:'#f0f0f0',cursor:'pointer'}}>+</button>
-          <span style={{fontWeight:700,minWidth:60,textAlign:'right'}}>{fmt(i.price*i.qty)}</span>
-        </div>
-      </div>)}
-      <div style={{display:'flex',justifyContent:'space-between',fontSize:18,fontWeight:800,marginTop:10}}><span>TOTAL</span><span>{fmt(total)}</span></div>
-      <div style={{display:'flex',gap:8,marginTop:12}}>
-        <button disabled={busy} onClick={()=>finish('cash')} style={{flex:1,padding:'13px',borderRadius:10,border:'none',cursor:'pointer',fontFamily:ff,fontSize:14,fontWeight:800,background:'#e3fff3',color:'#1a7a3c'}}>Cash → Bon</button>
-        <button disabled={busy} onClick={()=>finish('card')} style={{flex:1,padding:'13px',borderRadius:10,border:'none',cursor:'pointer',fontFamily:ff,fontSize:14,fontWeight:800,background:'#e8eeff',color:F.primary}}>Card → Bon</button>
-      </div>
-    </div>
-    </>}
-  </Modal>
-}
-
-// ── ADMIN: PREȚURI APLICAȚII ────────────────────────────────────────────────────────────
-function AppPreturiTab({appCats,setAppCats}){
-  const {ask,el}=useConfirm()
-  const [activeCat,setActiveCat]=useState(appCats[0]?.id||null)
-  const addCat=()=>{const id='ac'+Date.now();setAppCats(p=>[...p,{id,name:'Categorie noua',from:'#0017C0',to:'#0066ff',products:[]}]);setActiveCat(id)}
-  const delCat=async(id)=>{if(await ask('Stergi aceasta categorie si toate produsele din ea?')){setAppCats(p=>p.filter(c=>c.id!==id));if(activeCat===id)setActiveCat(null)}}
-  const renameCat=(id,name)=>setAppCats(p=>p.map(c=>c.id===id?{...c,name}:c))
-  const addProd=()=>setAppCats(p=>p.map(c=>c.id===activeCat?{...c,products:[...c.products,{id:'ap'+Date.now(),name:'Produs nou',price:0}]}:c))
-  const updProd=(pid,field,val)=>setAppCats(p=>p.map(c=>c.id===activeCat?{...c,products:c.products.map(pr=>pr.id===pid?{...pr,[field]:field==='price'?(+val||0):val}:pr)}:c))
-  const delProd=pid=>setAppCats(p=>p.map(c=>c.id===activeCat?{...c,products:c.products.filter(pr=>pr.id!==pid)}:c))
-  const cat=appCats.find(c=>c.id===activeCat)
-  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    {el}
-    <div style={{fontSize:17,fontWeight:700,color:F.text}}>Preturi Aplicatii (Glovo / Bolt / Tazz) — separate de site si stoc</div>
-    <div style={{fontSize:12,color:F.textMuted}}>Aceste categorii/produse NU influenteaza site-ul, stocul sau statisticile normale. Sunt folosite doar din butonul 🛵 Aplicatii din POS, pentru a emite bon fiscal cu preturile mai mari de pe aplicatii.</div>
-    <div style={{display:'flex',gap:16,alignItems:'flex-start',flexWrap:'wrap'}}>
-      <Card style={{minWidth:220,padding:12}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-          <div style={{fontSize:13,fontWeight:700,color:F.text}}>Categorii</div>
-          <button onClick={addCat} style={{padding:'5px 10px',borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontSize:12,fontWeight:700}}>+ Categorie</button>
-        </div>
-        {appCats.map(c=><div key={c.id} style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-          <input value={c.name} onChange={e=>renameCat(c.id,e.target.value)} onFocus={()=>setActiveCat(c.id)} style={{flex:1,padding:'6px 9px',border:`1px solid ${activeCat===c.id?F.primary:F.border}`,borderRadius:8,fontSize:12,fontFamily:ff}}/>
-          <button onClick={()=>delCat(c.id)} style={{width:26,height:26,borderRadius:6,border:'none',background:'#fff2f1',color:'#c0392b',cursor:'pointer',fontWeight:800}}>×</button>
-        </div>)}
-        {appCats.length===0&&<div style={{fontSize:12,color:F.textMuted}}>Nicio categorie inca.</div>}
-      </Card>
-      <Card style={{flex:1,minWidth:280,padding:14}}>
-        {!cat?<div style={{color:F.textMuted,fontSize:13}}>Selecteaza sau adauga o categorie.</div>:<>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontSize:14,fontWeight:700,color:F.text}}>Produse — {cat.name}</div>
-            <button onClick={addProd} style={{padding:'6px 12px',borderRadius:8,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,fontSize:12,fontWeight:700}}>+ Produs</button>
-          </div>
-          {cat.products.map(p=><div key={p.id} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
-            <input value={p.name} onChange={e=>updProd(p.id,'name',e.target.value)} style={{flex:1,padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}/>
-            <input type="number" step="0.5" value={p.price} onChange={e=>updProd(p.id,'price',e.target.value)} style={{width:90,padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,textAlign:'right'}}/>
-            <span style={{fontSize:12,color:F.textMuted}}>RON</span>
-            <button onClick={()=>delProd(p.id)} style={{width:28,height:28,borderRadius:8,border:'none',background:'#fff2f1',color:'#c0392b',cursor:'pointer',fontWeight:800}}>×</button>
-          </div>)}
-          {cat.products.length===0&&<div style={{fontSize:12,color:F.textMuted}}>Niciun produs inca.</div>}
-        </>}
-      </Card>
-    </div>
-  </div>
-}
-
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
-function AdminView({employee,employees,setEmployees,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,menus,setMenus,withdrawals,setWithdrawals,pierderi,setPierderi,btnCfg,setBtnCfg,onPOS,appCats,setAppCats}){
+function AdminView({employee,employees,setEmployees,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,menus,setMenus,withdrawals,setWithdrawals,pierderi,setPierderi,btnCfg,setBtnCfg,onPOS}){
   const [tab,setTab]=useState(employee.role==='casier'?'vanzarile_mele':'rapoarte')
   const [showReset,setShowReset]=useState(false)
   const TABS=[
     {id:'vanzarile_mele',label:'Vanzarile mele',roles:['casier']},
     {id:'rapoarte',label:'Rapoarte',roles:['owner','manager']},
     {id:'rapoarte_online',label:'Rapoarte Online',roles:['owner','manager']},
-    {id:'app_preturi',label:'Preturi Aplicatii',roles:['owner','manager']},
     {id:'profit',label:'Raport Profit',roles:['owner','manager']},
     {id:'produse',label:'Produse',roles:['owner','manager']},
     {id:'meniuri',label:'Meniuri',roles:['owner','manager']},
@@ -1123,7 +1035,6 @@ function AdminView({employee,employees,setEmployees,products,setProducts,cats,se
       {tab==='vanzarile_mele'&&<VanzarileMeleTab employee={employee} orders={orders}/>}
       {tab==='rapoarte'&&<RapoarteTab orders={orders} employees={employees} products={products}/>}
       {tab==='rapoarte_online'&&<RapoarteOnlineTab orders={orders}/>}
-      {tab==='app_preturi'&&<AppPreturiTab appCats={appCats} setAppCats={setAppCats}/>}
       {tab==='profit'&&<ProfitTab orders={orders} products={products} stock={stock}/>}
       {tab==='produse'&&<ProduseTab products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock}/>}
       {tab==='meniuri'&&<MenuriTab menus={menus} setMenus={setMenus} products={products}/>}
@@ -1466,6 +1377,11 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
               <Inp label="Pret (RON)" value={p.price} onChange={v=>updProd(p.id,'price',+v)} type="number"/>
               <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Categorie</label><select value={p.cat} onChange={e=>updProd(p.id,'cat',e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}>{cats.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Unitate</label><select value={p.unit} onChange={e=>updProd(p.id,'unit',e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff}}>{UNITS.map(u=><option key={u} value={u}>{u}</option>)}</select></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Glovo (RON)</label><input type="number" value={p.priceGlovo??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceGlovo',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Bolt (RON)</label><input type="number" value={p.priceBolt??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceBolt',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Wolt (RON)</label><input type="number" value={p.priceWolt??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceWolt',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
             </div>
             <div style={{background:F.bg,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',gap:16}}>
               <span style={{fontSize:12,color:F.textSec}}>Cost: <strong style={{color:'#c0392b'}}>{cost.toFixed(2)} RON</strong></span>
@@ -2358,33 +2274,6 @@ function AppInner(){
   useStickyFullscreen()
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
-  const [appCats,setAppCats]=usePersist('pos_app_cats',()=>[
-    {id:'ac_smash',name:'Smash',from:'#c0392b',to:'#ff3b30',products:[
-      {id:'ap1',name:'American Classic - Classic',price:37},
-      {id:'ap2',name:'American Classic - Maxi',price:49},
-      {id:'ap3',name:'American Spicy - Classic',price:43},
-      {id:'ap4',name:'American Spicy - Maxi',price:55},
-      {id:'ap5',name:'Fresh Smash - Classic',price:45},
-      {id:'ap6',name:'Fresh Smash - Maxi',price:57},
-      {id:'ap7',name:'Wow Bacon Smash - Classic',price:47},
-      {id:'ap8',name:'Wow Bacon Smash - Maxi',price:60},
-      {id:'ap9',name:'Chicken - Classic',price:37},
-      {id:'ap10',name:'Chicken - Maxi',price:49},
-      {id:'ap11',name:'Truffle Smash - Classic',price:43},
-      {id:'ap12',name:'Truffle Smash - Maxi',price:55},
-    ]},
-    {id:'ac_legends',name:'Our Legends',from:'#0017C0',to:'#0066ff',products:[
-      {id:'ap13',name:'Boom Royal Chesse',price:48},
-      {id:'ap14',name:'Boom Royal Spicy',price:48},
-    ]},
-    {id:'ac_frys',name:"Fry's",from:'#b35a00',to:'#ff9f0a',products:[
-      {id:'ap15',name:'Cajun',price:16},
-      {id:'ap16',name:'Usturoi si patrunjel',price:21},
-      {id:'ap17',name:'Cheddar & Bacon',price:24},
-    ]},
-  ])
-  const [appOrders,setAppOrders]=usePersist('pos_app_orders',()=>[])
-  const [showAppSale,setShowAppSale]=useState(false)
   useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
     setCats(p=>{ let ch=false; const n=p.map(c=>{ if(c.pack===undefined){ ch=true; return {...c,pack:(c.id==='burgeri'||c.id==='cartofi')?1:0} } return c }); return ch?n:p })
   },[])
@@ -2399,8 +2288,8 @@ function AppInner(){
   const [pierderi,setPierderi]=usePersist('pos_pierderi',[])
   const [btnCfg,setBtnCfg]=usePersist('pos_btnCfg',{kitchen:['#0017C0','#0066ff'],cash:['#1a7a1a','#28cd41'],card:['#cc0000','#ff0000'],protocol:['#6e1a8b','#bf5af2']})
   if(screen==='login') return <LoginScreen employees={employees} onLogin={e=>{setEmployee(e);setScreen('pos')}}/>
-  if(screen==='pos')   return <POSView employee={employee} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} setProtocols={setProtocols} customers={customers} setCustomers={setCustomers} menus={menus} pierderi={pierderi} setPierderi={setPierderi} onAdmin={()=>setScreen('admin')} onLogout={()=>{setEmployee(null);setScreen('login')}} btnCfg={btnCfg} setBtnCfg={setBtnCfg} appCats={appCats} showAppSale={showAppSale} setShowAppSale={setShowAppSale} onAppSaleFinish={o=>setAppOrders(p=>[o,...p])}/>
-  if(screen==='admin') return <AdminView employee={employee} employees={employees} setEmployees={setEmployees} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} menus={menus} setMenus={setMenus} withdrawals={withdrawals} setWithdrawals={setWithdrawals} pierderi={pierderi} setPierderi={setPierderi} btnCfg={btnCfg} setBtnCfg={setBtnCfg} onPOS={()=>setScreen('pos')} appCats={appCats} setAppCats={setAppCats}/>
+  if(screen==='pos')   return <POSView employee={employee} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} setProtocols={setProtocols} customers={customers} setCustomers={setCustomers} menus={menus} pierderi={pierderi} setPierderi={setPierderi} onAdmin={()=>setScreen('admin')} onLogout={()=>{setEmployee(null);setScreen('login')}} btnCfg={btnCfg} setBtnCfg={setBtnCfg}/>
+  if(screen==='admin') return <AdminView employee={employee} employees={employees} setEmployees={setEmployees} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} menus={menus} setMenus={setMenus} withdrawals={withdrawals} setWithdrawals={setWithdrawals} pierderi={pierderi} setPierderi={setPierderi} btnCfg={btnCfg} setBtnCfg={setBtnCfg} onPOS={()=>setScreen('pos')}/>
 }
 
 // ── APP WRAPPER (Supabase loader) ────────────────────────────────────────────
