@@ -38,9 +38,9 @@ async function sendFiscalReceipt(items, total, method){
     const text=await res.text()
     let data={}
     if(text&&text.trim()){try{data=JSON.parse(text)}catch(e){/* raspuns gol/necurat de la aparat, dar bonul de multe ori chiar iese */}}
-    if(data.ReceiptStatus===false) throw new Error(data.ReceiptError||data.Error||data.Message||data.error||'Eroare casă fiscală')
+    if(data.ReceiptStatus===false) throw new Error(data.ReceiptError||data.Error||data.Message||data.error||('Casă fiscală a refuzat bonul — răspuns: '+JSON.stringify(data).slice(0,200)))
     return {ok:true,nr:data.ReceiptNumber||'?'}
-  }catch(e){return {ok:false,err:e.message}}
+  }catch(e){return {ok:false,err:e.message||'Eroare necunoscută (verifică rețeaua/aparatul fiscal)'}}
 }
 const ROLE_COLORS = { owner:['#0017C0','#0066ff'], manager:['#6e1a8b','#bf5af2'], casier:['#1a7a3c','#30d158'] }
 const ROLES = { owner:'ADMIN', manager:'Manager', casier:'Casier' }
