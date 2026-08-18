@@ -887,8 +887,8 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
       <GBtn from='#0017C0' to='#0066ff' onClick={onAdmin} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Admin</GBtn>
       <button onClick={()=>{_fsWanted=!document.fullscreenElement;if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}else{_fsWanted=false;document.exitFullscreen&&document.exitFullscreen()}}} style={{padding:'10px 14px',fontSize:18,borderRadius:10,border:'none',cursor:'pointer',background:'#eef1ff',color:F.primary,fontFamily:ff,lineHeight:1}} title="Fullscreen">⛶</button>
       <div style={{display:'flex',gap:4,background:'#f0f4ff',borderRadius:10,padding:4}}>
-        {[['local','În locație'],['glovo','Glovo'],['bolt','Bolt'],['wolt','Wolt']].map(([k,l])=>
-          <button key={k} onClick={()=>setChannel(k)} style={{padding:'8px 14px',fontSize:14,borderRadius:8,border:'none',cursor:'pointer',fontFamily:ff,fontWeight:800,background:channel===k?F.primary:'transparent',color:channel===k?'#fff':F.primary}}>{l}</button>
+        {[['local','În locație',F.primary],['glovo','Glovo','#ff6a00'],['bolt','Bolt','#1a7a3c'],['wolt','Wolt','#0066ff']].map(([k,l,c])=>
+          <button key={k} onClick={()=>setChannel(k)} style={{padding:'12px 20px',fontSize:16,borderRadius:8,border:'none',cursor:'pointer',fontFamily:ff,fontWeight:800,background:channel===k?c:'transparent',color:channel===k?'#fff':c}}>{l}</button>
         )}
       </div>
       <GBtn from='#c0392b' to='#ff3b30' onClick={onLogout} style={{padding:'12px 22px',fontSize:16,borderRadius:10}}>Iesire</GBtn>
