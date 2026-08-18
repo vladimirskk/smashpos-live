@@ -807,19 +807,25 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
   const isMenu=activeCat==='__menus__'
   const isTot=activeCat==='__toate__'
   const filtered=isMenu?[]:isTot?products.filter(p=>p.available):products.filter(p=>p.cat===activeCat&&p.available)
-  // Doar Punga: 2 RON per comanda (fara ambalaj per produs)
+  // Doar Punga: 2 RON per comanda in locatie. Pe Glovo/Bolt/Wolt: ambalaj setat per produs (pt. bonul fiscal).
+  const packFeeOf=i=>{if(channel==='local')return 0;const key='pack'+channel.charAt(0).toUpperCase()+channel.slice(1);return i[key]||0}
   const packQty=cart.reduce((s,i)=>s+i.qty,0)
-  const packagingFee=0
-  const bagFee=packQty>0?2:0
-  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+bagFee
+  const packagingFee=channel==='local'?0:cart.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
+  const bagFee=channel==='local'&&packQty>0?2:0
+  const subtotal=cart.reduce((s,i)=>s+i.price*i.qty,0)+packagingFee+bagFee
   const vat=Math.round(subtotal*VAT*100)/100
   const total=subtotal+vat
   const withPackaging=items=>{
     const q=items.reduce((s,i)=>s+i.qty,0)
     if(q===0)return items
-    // qty=1 pe linia de Ambalaj (nu q) ca sa evitam impartiri cu rest zecimal (fee/q) care produc erori
-    // de rotunjire pe casa de marcat (ERR117 - suma bon vs suma incasata). Denumirea arata cantitatea reala.
-    return [...items,{id:'__punga',name:'Punga',price:2,qty:1,cat:'__fee'}]
+    const rows=[]
+    if(channel==='local'){
+      rows.push({id:'__punga',name:'Punga',price:2,qty:1,cat:'__fee'})
+    } else {
+      const feeTotal=items.reduce((s,i)=>s+packFeeOf(i)*i.qty,0)
+      if(feeTotal>0) rows.push({id:'__ambalaj',name:'Ambalaj',price:feeTotal,qty:1,cat:'__fee'})
+    }
+    return [...items,...rows]
   }
   const cartCount=cart.reduce((s,i)=>s+i.qty,0)
   const rawAdd=p=>setCart(prev=>{const price=priceForChannel(p,channel);const ex=prev.find(i=>i.id===p.id);if(ex)return prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i);return[...prev,{...p,price,qty:1}]})
@@ -948,6 +954,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
         </div>
         {cart.length>0&&<div style={{padding:'7px 13px',borderTop:`1px solid ${F.border}`,background:'#f9f9fb'}}>
           {bagFee>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Punga</span><span>{bagFee.toFixed(2)} RON</span></div>}
+          {packagingFee>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:F.textMuted,marginTop:2}}><span>Ambalaj</span><span>{packagingFee.toFixed(2)} RON</span></div>}
           <div style={{display:'flex',justifyContent:'space-between',fontSize:17,fontWeight:800,color:F.text,marginTop:4}}><span>TOTAL</span><span>{total.toFixed(2)} RON</span></div>
         </div>}
         <div style={{padding:'9px 13px 13px',display:'flex',flexDirection:'column',gap:7}}>
@@ -1382,6 +1389,11 @@ function ProduseTab({products,setProducts,cats,setCats,stock}){
               <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Glovo (RON)</label><input type="number" value={p.priceGlovo??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceGlovo',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
               <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Bolt (RON)</label><input type="number" value={p.priceBolt??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceBolt',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
               <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Pret Wolt (RON)</label><input type="number" value={p.priceWolt??''} placeholder={String(p.price)} onChange={e=>updProd(p.id,'priceWolt',e.target.value===''?null:+e.target.value)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:12}}>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Ambalaj Glovo (RON)</label><input type="number" step="0.5" value={p.packGlovo??0} onChange={e=>updProd(p.id,'packGlovo',+e.target.value||0)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Ambalaj Bolt (RON)</label><input type="number" step="0.5" value={p.packBolt??0} onChange={e=>updProd(p.id,'packBolt',+e.target.value||0)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}><label style={{fontSize:11,fontWeight:600,color:F.textSec}}>Ambalaj Wolt (RON)</label><input type="number" step="0.5" value={p.packWolt??0} onChange={e=>updProd(p.id,'packWolt',+e.target.value||0)} style={{padding:'7px 10px',border:`1px solid ${F.border}`,borderRadius:8,fontSize:13,fontFamily:ff,color:F.text}}/></div>
             </div>
             <div style={{background:F.bg,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',gap:16}}>
               <span style={{fontSize:12,color:F.textSec}}>Cost: <strong style={{color:'#c0392b'}}>{cost.toFixed(2)} RON</strong></span>
