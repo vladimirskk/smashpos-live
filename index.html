@@ -31,7 +31,7 @@ async function sendFiscalReceipt(items, total, method){
       const unit=(it.unit||'buc').substring(0,8)
       return `S^${name}^${pBani}^1000^${unit}^5^${it.qty}`
     })
-    const totalBani=lines.reduce((s,l)=>{const parts=l.split('^');return s+Math.round(parseInt(parts[2])*parseFloat(parts[6]))},0)
+    const totalBani=Math.round(total*100)
     lines.push(`P^${method==='cash'?1:2}^${totalBani}`)
     const res=await fetch(FISCAL_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(lines)})
     if(!res.ok) throw new Error(`HTTP ${res.status}`)
