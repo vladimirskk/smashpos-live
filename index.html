@@ -1000,7 +1000,7 @@ function POSView({employee,products,setProducts,cats,setCats,stock,setStock,orde
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
-function AdminView({employee,employees,setEmployees,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,menus,setMenus,withdrawals,setWithdrawals,pierderi,setPierderi,btnCfg,setBtnCfg,onPOS}){
+function AdminView({employee,employees,setEmployees,products,setProducts,cats,setCats,stock,setStock,orders,setOrders,protocols,menus,setMenus,withdrawals,setWithdrawals,pierderi,setPierderi,btnCfg,setBtnCfg,onPOS,siteOpen,setSiteOpen}){
   const [tab,setTab]=useState(employee.role==='casier'?'vanzarile_mele':'rapoarte')
   const [showReset,setShowReset]=useState(false)
   const TABS=[
@@ -1027,6 +1027,7 @@ function AdminView({employee,employees,setEmployees,products,setProducts,cats,se
       <div style={{width:30,height:30,borderRadius:8,background:'rgba(255,255,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:800,color:'#fff'}}>V</div>
       <span style={{fontSize:14,fontWeight:700,color:'#fff',flex:1}}>VladimirSmash — Admin</span>
       <span style={{fontSize:12,color:'rgba(255,255,255,0.7)'}}>{employee.name}</span>
+      <button onClick={()=>setSiteOpen(!siteOpen)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:siteOpen?'#1a7a3c':'#c0392b',color:'#fff',fontFamily:ff,fontSize:12,fontWeight:800,cursor:'pointer'}}>{siteOpen?'🟢 Site: primim comenzi':'🔴 Site: comenzi oprite'}</button>
       {employee.role==='owner'&&<button onClick={()=>setShowReset(true)} style={{padding:'5px 13px',borderRadius:8,border:'1.5px solid rgba(255,200,200,0.5)',background:'rgba(192,57,43,0.3)',color:'#ffcccc',fontFamily:ff,fontSize:12,fontWeight:600,cursor:'pointer'}}>Reset rapoarte</button>}
       <button onClick={onPOS} style={{padding:'5px 13px',borderRadius:8,border:'1.5px solid rgba(255,255,255,0.35)',background:'transparent',color:'#fff',fontFamily:ff,fontSize:12,fontWeight:600,cursor:'pointer'}}>POS</button>
     </div>
@@ -2281,6 +2282,7 @@ function AppInner(){
   useStickyFullscreen()
   const [employee,setEmployee]=useState(null)
   const [cats,setCats]=usePersist('pos_cats',INIT_CATS)
+  const [siteOpen,setSiteOpen]=usePersist('site_open',true)
   useEffect(()=>{ // migrare: seteaza ambalaj implicit (1 RON) la burgeri/cartofi daca lipseste din date deja salvate
     setCats(p=>{ let ch=false; const n=p.map(c=>{ if(c.pack===undefined){ ch=true; return {...c,pack:(c.id==='burgeri'||c.id==='cartofi')?1:0} } return c }); return ch?n:p })
   },[])
@@ -2296,7 +2298,7 @@ function AppInner(){
   const [btnCfg,setBtnCfg]=usePersist('pos_btnCfg',{kitchen:['#0017C0','#0066ff'],cash:['#1a7a1a','#28cd41'],card:['#cc0000','#ff0000'],protocol:['#6e1a8b','#bf5af2']})
   if(screen==='login') return <LoginScreen employees={employees} onLogin={e=>{setEmployee(e);setScreen('pos')}}/>
   if(screen==='pos')   return <POSView employee={employee} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} setProtocols={setProtocols} customers={customers} setCustomers={setCustomers} menus={menus} pierderi={pierderi} setPierderi={setPierderi} onAdmin={()=>setScreen('admin')} onLogout={()=>{setEmployee(null);setScreen('login')}} btnCfg={btnCfg} setBtnCfg={setBtnCfg}/>
-  if(screen==='admin') return <AdminView employee={employee} employees={employees} setEmployees={setEmployees} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} menus={menus} setMenus={setMenus} withdrawals={withdrawals} setWithdrawals={setWithdrawals} pierderi={pierderi} setPierderi={setPierderi} btnCfg={btnCfg} setBtnCfg={setBtnCfg} onPOS={()=>setScreen('pos')}/>
+  if(screen==='admin') return <AdminView employee={employee} employees={employees} setEmployees={setEmployees} products={products} setProducts={setProducts} cats={cats} setCats={setCats} stock={stock} setStock={setStock} orders={orders} setOrders={setOrders} protocols={protocols} menus={menus} setMenus={setMenus} withdrawals={withdrawals} setWithdrawals={setWithdrawals} pierderi={pierderi} setPierderi={setPierderi} btnCfg={btnCfg} setBtnCfg={setBtnCfg} onPOS={()=>setScreen('pos')} siteOpen={siteOpen} setSiteOpen={setSiteOpen}/>
 }
 
 // ── APP WRAPPER (Supabase loader) ────────────────────────────────────────────
